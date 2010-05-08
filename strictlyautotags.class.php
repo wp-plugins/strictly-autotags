@@ -99,8 +99,9 @@ class StrictlyAutoTags{
 
 			// if we are auto discovering tags then we need to reformat words next to full stops so that we don't get false positives
 			if($this->autodiscover){
-				// ensure capitals next to full stops are decapitalised
-				$content = preg_replace("/(\.[”’\"]?\s*[A-Z][a-z]+\s)/e","strtolower('$1')",$content);
+				// ensure capitals next to full stops are decapitalised but only if the word is single e.g
+				// change . The world to . the but not . United States
+				$content = preg_replace("/(\.[”’\"]?\s*[A-Z][a-z]+\s[a-z])/e","strtolower('$1')",$content);
 			}
 
 			// now remove punctuation chars

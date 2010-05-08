@@ -39,12 +39,28 @@ tags on the way with as little effort as possible.
 
 This section describes how to install the plugin and get it working.
 
-e.g.
+1. Download the plugin.
+2. Unzip the strictly-autotags compressed file.
+3. Upload the directory strictlyautotags to the /wp-content/plugins directory on your WordPress blog.
+4. Activate the plugin through the 'Plugins' menu in WordPress.
+5. Use the newly created Admin option within Wordpress titled Strictly Auto Tags to set the configuration for the plugin.
+6. Tags will now automatically be added to all posts that are added or edited that don't currently have tags associated with it.
 
-1. Download the plugin
-2. Unzip the StrictlyAutoTags compressed file
-3. Upload the directory strictlyautotags to the /wp-content/plugins directory on your WordPress blog
-4. Activate the plugin through the 'Plugins' menu in WordPress
+Help 
+
+1. If you add a post but no tags are added then it does not mean the plugin is not working just that no tags could be found to associate with the post.
+
+2. Test the plugin is working by creating a new post with the following content:
+
+Title: CIA admits responsibility for torture at Guantanamo Bay
+
+Content: Today the CIA admitted it was responsible for the recent accusations of torture at Guantanamo Bay.
+
+Billy Bob Johnson, the chief station manager at the Guantanamo Bay prison said that the United States of America had to hold its hands up and admit that it had allowed its CIA operatives to feed the prisoners nothing but McDonalds and Kentucky Fried Chicken meals whilst forcing them to listen to Christian Rock Music for up to 20 hour periods at a time without any break.
+
+The CIA apologised for the allegations and promised to review its policy of using fast food and Christian Rock Music as a method of torture.
+
+3. Save the post and check the number of tags that get added. The plugin should have found a number of words to use even if you have no existing saved tags in your site.
 
 == Changelog ==
 
@@ -59,4 +75,5 @@ e.g.
 * Added Admin page description text into language specific text handler
 * Added continents and major regions into the MatchCountries method
 * Added noise word removal before name matching in the MatchNames method
-* strip all HTML tags from article content
+* strip all HTML tags from article content before parsing
+* updated regular expression that decapitalises words next to periods to only affect single capitalised words
