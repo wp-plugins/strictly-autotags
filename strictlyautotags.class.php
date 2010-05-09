@@ -10,8 +10,6 @@
  * =======================================================================
  */
 
-define('DEBUG',true);
-
 require_once(dirname(__FILE__) . "/strictlyautotagfuncs.php");
 
 class StrictlyAutoTags{
