@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2
 Tested up to: 2.9.2
-Stable tag: 1.2
+Stable tag: 1.3
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -77,3 +77,10 @@ The CIA apologised for the allegations and promised to review its policy of usin
 * Added noise word removal before name matching in the MatchNames method
 * strip all HTML tags from article content before parsing
 * updated regular expression that decapitalises words next to periods to only affect single capitalised words
+
+= 1.3 =
+* Added TrustTitle method to check whether it can be used to auto discover new tags or not
+* Removed all HTML entities before checking content
+* Added extra safety check to term parser to handle previosuly entered bad terms
+* Added IsNoiseWord function in to check for capitalised noise words
+* Changed regular expressions to remove all non word characters instead of some punctuation

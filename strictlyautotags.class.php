@@ -2,13 +2,15 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: Version 1.2
+ * Version: Version 1.3
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
  * Author URI: http://www.strictly-software.com 
  * =======================================================================
  */
+
+define('DEBUG',true);
 
 require_once(dirname(__FILE__) . "/strictlyautotagfuncs.php");
 
@@ -37,6 +39,16 @@ class StrictlyAutoTags{
 	* @var integer
 	*/
 	protected $maxtags; 
+
+
+	 /**
+	* The list of noise words to use=
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $noisewords = "about|after|a|all|also|an|and|another|any|are|as|at|be|because|been|before|being|between|both|but|by|came|can|come|could|did|do|each|even|for|from|further|furthermore|get|got|had|has|have|he|her|here|hi|him|himself|how|however|i|if|in|indeed|into|is|it|its|just|like|made|many|may|me|might|more|moreover|most|much|must|my|never|not|now|of|on|only|or|other|our|out|over|put|said|same|see|she|should|since|some|still|such|take|than|that|the|their|them|then|there|therefore|these|they|this|those|through|thus|to|too|under|up|very|was|way|we|well|were|what|when|where|which|while|who|will|why|with|would|you|your"; 
+
 
 	public function __construct(){
 
@@ -104,16 +116,76 @@ class StrictlyAutoTags{
 				$content = preg_replace("/(\.[”’\"]?\s*[A-Z][a-z]+\s[a-z])/e","strtolower('$1')",$content);
 			}
 
-			// now remove punctuation chars
-			$content = preg_replace("/[.,;:\"'“”‘’] /"," ",$content);
-
 			// remove plurals
 			$content = preg_replace("/(\w)([‘'’]s )/i","$1 ",$content);
+
+			// now remove anything not a letter or number
+			$content = preg_replace("/[^\w\d\s]/"," ",$content);
+			
+			// remove excess space
+			$content = preg_replace("/\s{2,}/"," ",$content);			
 
 		}
 
 		return $content;
 
+	}
+
+	/**
+	 * Checks the title string to see if autodiscovery of new terms is possible
+	 * A title that is all capitalised cannot be searched for Acronyms or new sentences
+	 *
+	 * @param string $title
+	 * @return boolean
+	 */
+	protected function TrustTitle($title){
+
+		// do we have any lowercase letters in the string?
+		$l = strlen(preg_replace("/[^a-z]/","",$title));
+
+		// if all the words are uppercase then we cannot distinguish between Acronyms and proper cased strings
+		if($l==0){
+			return false;
+		}
+
+		// strip everything not space or uppercase/lowercase
+		$title = preg_replace("/[^A-Za-z\s]/","",$title);
+
+		// count words
+		$c = str_word_count($title);
+
+		// if all words have had first letters capitalised then we cannot trust string either
+		$cc = preg_match_all("/\b[A-Z][A-Za-z]*\b/",$title,$matches);
+
+		// if the number of words equals the number that are capitalised then we cannot trust the title
+		if($cc == $c){
+			// cannot trust the title
+			return false;
+		}
+		
+		// further tests would be nice, maybe check for capitalised noise words?
+		return true;
+		
+	}
+
+	/**
+	 * Checks a word to see if its a known noise word
+	 * 
+	 * @param string $word
+	 * @return boolean
+	 */
+	protected function IsNoiseWord($word){
+
+		// create noise word regex
+		$regex = "/^(?:" . $this->noisewords . ")$/i";
+		
+		$count = preg_match($regex,$word,$match);
+
+		if(count($match)>0){
+			return true;
+		}else{			
+			return false;
+		}
 	}
 
 	/**
@@ -134,9 +206,12 @@ class StrictlyAutoTags{
 				
 				$pat = $match[1];
 
-				// add in the format key=value to make removing items easy and quick plus we don't waste overhead running
-				// array_unique to remove duplicates!					
-				$searchtags[$pat] = trim($pat);
+				// ignore noise words who someone has capitalised!
+				if(!$this->IsNoiseWord($pat)){
+					// add in the format key=value to make removing items easy and quick plus we don't waste overhead running
+					// array_unique to remove duplicates!					
+					$searchtags[$pat] = trim($pat);
+				}
 			}
 		}
 	}
@@ -170,8 +245,11 @@ class StrictlyAutoTags{
 	 */
 	protected function MatchNames($content,&$searchtags){
 
+		// create noise word regex
+		$regex = "/\b(" . $this->noisewords . ")\b/i";
+
 		// remove noise words from content first
-		$content = preg_replace("/\b(about|after|a|all|also|an|and|another|any|are|as|at|be|because|been|before|being|between|both|but|by|came|can|come|could|did|do|each|even|for|from|further|furthermore|get|got|had|has|have|he|her|here|hi|him|himself|how|however|i|if|in|indeed|into|is|it|its|just|like|made|many|may|me|might|more|moreover|most|much|must|my|never|not|now|of|on|only|or|other|our|out|over|put|said|same|see|she|should|since|some|still|such|take|than|that|the|their|them|then|there|therefore|these|they|this|those|through|thus|to|too|under|up|very|was|way|we|well|were|what|when|where|which|while|who|will|why|with|would|you|your)\b/i"," ",$content);
+		$content = preg_replace($regex," ",$content);
 
 		// look for names of people or important strings of 2-4 words that start with capitals e.g Federal Reserve Bank or Barack Obama
 		preg_match_all("/(\s[A-Z][^\s]{2,}\s[A-Z][^\s]+\s(?:[A-Z][^\s]+\s)?(?:[A-Z][^\s]+\s)?)/",$content,$matches,PREG_SET_ORDER);
@@ -189,6 +267,18 @@ class StrictlyAutoTags{
 			
 	}
 
+	/**
+	 * formats strings so they can be used in regular expressions easily by escaping special chars used in pattern matching
+	 *
+	 * @param string $input
+	 * @return string
+	 */
+	function FormatRegEx($input){
+
+		$input = preg_replace("@([$^|()*+?.\[\]{}])@","\\\\$1",$input);
+
+		return $input;
+	}
 
 	/**
 	 * Parse post content to discover new tags and then rank matching tags so that only the most appropriate are added to a post
@@ -212,36 +302,54 @@ class StrictlyAutoTags{
 		// potential tags to add
 		$searchtags = array();
 
-		$article	= strip_tags($object->post_content);
-		$excerpt	= $object->post_excerpt;
-		$title		= $object->post_title;
+		// ensure all html entities have been decoded
+		$article	= html_entity_decode(strip_tags($object->post_content));
+		$excerpt	= html_entity_decode($object->post_excerpt);
+		$title		= html_entity_decode($object->post_title);
 
-		// add space to end and beginning to make matching easier
-		$content = " " . $article . " " . $excerpt . " " . $title . " ";
+		// no need to trim as empty checks for space
+		if(empty($article) && empty($excerpt) && empty($title)){		
+			return $addtags;	
+		}
+
+
+		// if we are looking for new tags then can we trust the title? Some authors like to put each word in capitals
+		// or capitalise the first letter of each word which would mean our autodisovery techniques would throw false positives
+		// so lets check our title first
+		
+		if($autodiscover && $this->TrustTitle($title)){
+
+			// add space to the end and beginning to make matching easier
+			$content			= " " . $article . " " . $excerpt . " " . $title . " ";
+			$discovercontent	= $content;
+
+		}else{
+			// cannot trust title so only look in the article and excerpt for new tags
+			$discovercontent	= " " . $article . " " . $excerpt. " ";
+			$content			= $discovercontent . $title . " ";
+
+		}
 
 		// set working variable which will be decreased when tags have been found
 		$maxtags = $this->maxtags;
 
-		// no need to trim as empty checks for space
-		if(empty($content)){		
-			return $addtags;	
-		}
 
 		// reformat content to remove plurals and punctuation
-		$content = $this->FormatContent($content);
+		$content			= $this->FormatContent($content);
+		$discovercontent	= $this->FormatContent($discovercontent);
 
 		// now if we are looking for new tags
 		if($this->autodiscover){
 			
 			// look for Acronyms in content
 			// the searchtag array is passed by reference to prevent copies of arrays and merges later on
-			$this->MatchAcronyms($content,$searchtags);		
+			$this->MatchAcronyms($discovercontent,$searchtags);		
 			
 			// look for countries as these are used as tags quite a lot
-			$this->MatchCountries($content,$searchtags);
+			$this->MatchCountries($discovercontent,$searchtags);
 
 			// look for names and important sentences 2-4 words all capitalised
-			$this->MatchNames($content,$searchtags);
+			$this->MatchNames($discovercontent,$searchtags);
 		}
 
 		
@@ -263,13 +371,14 @@ class StrictlyAutoTags{
 				");
 
 			$vals = trim($dbtermresults[0]);
-		
+					
 			// cleanup ASAP
 			unset($dbtermresults);
 
 			// add the search terms we found
 			if(count($searchtags) > 0){
-				$vals = str_replace(" ","\s",$vals . "|" . implode($searchtags,"|"));
+				// search tags shouldn't contain special regex chars as we replaced all non A-Za-z1-9 earlier
+				$vals = str_replace(" ","\s",$this->FormatRegEx($vals) . "|" . implode($searchtags,"|"));
 			}
 
 			// add space to either side of title to make matching easier
@@ -364,14 +473,11 @@ class StrictlyAutoTags{
 				
 				if( $d > 0){
 
-					ShowDebug("combine searchtags with terms");
-
 					$terms = array_merge($dbterms,$searchtags);
 					
 					// remove duplicates
 					$terms = array_unique($terms);
-
-					ShowDebug("look at combo of searchterms and terms from DB");
+					
 				}else{
 					$terms = $searchtags;					
 				}
@@ -403,21 +509,25 @@ class StrictlyAutoTags{
 			// just because it appears once as that single word would possibly be irrelevant to the posts context.
 			foreach($terms as $term){
 
-				// for an accurate search use preg_match_all with word boundaries
-				// as substr_count doesn't always return the correct number from tests I did
-				
-				$regex = "/\b" . $term . "\b/";
+				// safety check
+				if(strlen($terms) > 1){
 
-				//echo "term = " . $term . " - regex = " . $regex . "<br>";
+					// for an accurate search use preg_match_all with word boundaries
+					// as substr_count doesn't always return the correct number from tests I did
+					
+					$regex = "/\b" . $this->FormatRegEx( $term ) . "\b/";
 
-				$i = preg_match_all($regex,$content,$matches);
+					//echo "term = " . $term . " - regex = " . $regex . "<br>";
 
-				// if found then store it with the no of occurances
-				if($i > 0){
+					$i = preg_match_all($regex,$content,$matches);
 
-					// add term and hit count to our array
-					$tagstack[] = array("term"=>$term,"count"=>$i);
+					// if found then store it with the no of occurances
+					if($i > 0){
 
+						// add term and hit count to our array
+						$tagstack[] = array("term"=>$term,"count"=>$i);
+
+					}
 				}
 			}
 
