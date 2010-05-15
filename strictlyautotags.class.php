@@ -2,13 +2,18 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: Version 1.3
+ * Version: Version 1.4
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
  * Author URI: http://www.strictly-software.com 
  * =======================================================================
  */
+
+/*
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+*/
 
 require_once(dirname(__FILE__) . "/strictlyautotagfuncs.php");
 
@@ -38,20 +43,69 @@ class StrictlyAutoTags{
 	*/
 	protected $maxtags; 
 
+	/**
+	* The percentage of content that is allowed to be capitalised when auto discovering new tags
+	*
+	* @access protected
+	* @var integer
+	*/
+	protected $ignorepercentage;
 
-	 /**
-	* The list of noise words to use=
+	/**
+	* The list of noise words to use
 	*
 	* @access protected
 	* @var string
 	*/
-	protected $noisewords = "about|after|a|all|also|an|and|another|any|are|as|at|be|because|been|before|being|between|both|but|by|came|can|come|could|did|do|each|even|for|from|further|furthermore|get|got|had|has|have|he|her|here|hi|him|himself|how|however|i|if|in|indeed|into|is|it|its|just|like|made|many|may|me|might|more|moreover|most|much|must|my|never|not|now|of|on|only|or|other|our|out|over|put|said|same|see|she|should|since|some|still|such|take|than|that|the|their|them|then|there|therefore|these|they|this|those|through|thus|to|too|under|up|very|was|way|we|well|were|what|when|where|which|while|who|will|why|with|would|you|your"; 
+	protected $noisewords;
+
+
+	/**
+	* This setting determines how nested tags are handled e.g New York, New York City, New York City Fire Department all contain "New York"
+	* AUTOTAG_BOTH = all 3 terms will be tagged 
+	* AUTOTAG_SHORT= the shortest version "New York" will be tagged and the others dicarded
+	* AUTOTAG_LONG = the longest version "New York City Fire Department" will be tagged and the others dicarded
+	*/
+	protected $nestedtags;
+
+
+	/**
+	* The default list of noise words to use
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $defaultnoisewords = "about|after|a|all|also|an|and|another|any|are|as|at|be|because|been|before|being|between|both|but|by|came|can|come|could|did|do|each|even|for|from|further|furthermore|get|got|had|has|have|he|her|here|hi|him|himself|how|however|i|if|in|indeed|into|is|it|its|just|like|made|many|may|me|might|more|moreover|most|much|must|my|never|not|now|of|on|only|or|other|our|out|over|put|said|same|see|she|should|since|some|still|such|take|than|that|the|their|them|then|there|therefore|these|they|this|those|through|thus|to|too|under|up|very|was|way|we|well|were|what|when|where|which|while|who|will|why|with|would|you|your"; 
+
+	/**
+	* Holds a regular expression for checking whether a word is a noise word
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $isnoisewordregex;
+
+	/**
+	* Holds a regular expression for removing noise words from a string of words
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $removenoisewordsregex;
 
 
 	public function __construct(){
 
 		// set up values for config options e.g autodiscover, ranktitle, maxtags
 		$this->GetOptions();
+
+		// create some regular expressions required by the parser
+		
+		// create regex to identify a noise word
+		$this->isnoisewordregex		= "/^(?:" . $this->noisewords . ")$/i";
+
+		// create regex to replace all noise words in a string
+		$this->removenoisewordsregex= "/\b(" . $this->noisewords . ")\b/i";
 
 		// load any language specific text
 		load_textdomain('strictlyautotags', dirname(__FILE__).'/language/'.get_locale().'.mo');
@@ -104,21 +158,21 @@ class StrictlyAutoTags{
 	 * @return string
 	 */
 	protected function FormatContent($content=""){
-		
+
 		if(!empty($content)){
 
 			// if we are auto discovering tags then we need to reformat words next to full stops so that we don't get false positives
 			if($this->autodiscover){
 				// ensure capitals next to full stops are decapitalised but only if the word is single e.g
-				// change . The world to . the but not . United States
-				$content = preg_replace("/(\.[”’\"]?\s*[A-Z][a-z]+\s[a-z])/e","strtolower('$1')",$content);
+				// change ". The world" to ". the" but not ". United States"
+				$content = preg_replace("/(\.[”’\"]?\s*[A-Z][a-z]+\s[a-z])/ue","strtolower('$1')",$content);
 			}
 
 			// remove plurals
 			$content = preg_replace("/(\w)([‘'’]s )/i","$1 ",$content);
 
 			// now remove anything not a letter or number
-			$content = preg_replace("/[^\w\d\s]/"," ",$content);
+			$content = preg_replace("/[^\w\d\s\.,]/"," ",$content);
 			
 			// remove excess space
 			$content = preg_replace("/\s{2,}/"," ",$content);			
@@ -128,44 +182,7 @@ class StrictlyAutoTags{
 		return $content;
 
 	}
-
-	/**
-	 * Checks the title string to see if autodiscovery of new terms is possible
-	 * A title that is all capitalised cannot be searched for Acronyms or new sentences
-	 *
-	 * @param string $title
-	 * @return boolean
-	 */
-	protected function TrustTitle($title){
-
-		// do we have any lowercase letters in the string?
-		$l = strlen(preg_replace("/[^a-z]/","",$title));
-
-		// if all the words are uppercase then we cannot distinguish between Acronyms and proper cased strings
-		if($l==0){
-			return false;
-		}
-
-		// strip everything not space or uppercase/lowercase
-		$title = preg_replace("/[^A-Za-z\s]/","",$title);
-
-		// count words
-		$c = str_word_count($title);
-
-		// if all words have had first letters capitalised then we cannot trust string either
-		$cc = preg_match_all("/\b[A-Z][A-Za-z]*\b/",$title,$matches);
-
-		// if the number of words equals the number that are capitalised then we cannot trust the title
-		if($cc == $c){
-			// cannot trust the title
-			return false;
-		}
-		
-		// further tests would be nice, maybe check for capitalised noise words?
-		return true;
-		
-	}
-
+	
 	/**
 	 * Checks a word to see if its a known noise word
 	 * 
@@ -173,17 +190,54 @@ class StrictlyAutoTags{
 	 * @return boolean
 	 */
 	protected function IsNoiseWord($word){
-
-		// create noise word regex
-		$regex = "/^(?:" . $this->noisewords . ")$/i";
 		
-		$count = preg_match($regex,$word,$match);
+		$count = preg_match($this->isnoisewordregex,$word,$match);
 
 		if(count($match)>0){
 			return true;
 		}else{			
 			return false;
 		}
+	}
+
+	/*
+	 * removes noise words from a given string
+	 *
+	 * @param string
+	 * @return string
+	 */
+	function RemoveNoiseWords($content){		
+
+		$content = preg_replace($this->removenoisewordsregex," ",$content);
+
+		return $content;
+	}
+
+	/*
+	 * counts the number of words that capitalised in a string
+	 *
+	 * @param string
+	 * @return integer
+	 */
+	function CountCapitals($words){
+		
+		$no_caps =	preg_match_all("/\b[A-Z][A-Za-z]*\b/",$words,$matches);			
+
+		return $no_caps;
+	}
+	
+	/*
+	 * strips all non words from a string
+	 *
+	 * @param string
+	 * @return string
+	 */
+	function StripNonWords($words){
+
+		// strip everything not space or uppercase/lowercase
+		$words = preg_replace("/[^A-Za-z\s]/u","",$words);
+	
+		return $words;
 	}
 
 	/**
@@ -196,7 +250,7 @@ class StrictlyAutoTags{
 		
 		// easiest way to look for keywords without some sort of list is to look for Acronyms like CIA, AIG, JAVA etc.
 		// so use a regex to match all words that are pure capitals 2 chars or more to skip over I A etc
-		preg_match_all("/\b([A-Z]{2,})\b/",$content,$matches,PREG_SET_ORDER);
+		preg_match_all("/\b([A-Z]{2,})\b/u",$content,$matches,PREG_SET_ORDER);
 	
 		if($matches){
 		
@@ -212,6 +266,9 @@ class StrictlyAutoTags{
 				}
 			}
 		}
+
+		unset($match,$matches);
+
 	}
 
 	/**
@@ -233,6 +290,9 @@ class StrictlyAutoTags{
 				$searchtags[$pat] = trim($pat);
 			}
 		}
+
+		unset($match,$matches);
+
 	}
 
 	/**
@@ -249,8 +309,9 @@ class StrictlyAutoTags{
 		// remove noise words from content first
 		$content = preg_replace($regex," ",$content);
 
-		// look for names of people or important strings of 2-4 words that start with capitals e.g Federal Reserve Bank or Barack Obama
-		preg_match_all("/(\s[A-Z][^\s]{2,}\s[A-Z][^\s]+\s(?:[A-Z][^\s]+\s)?(?:[A-Z][^\s]+\s)?)/",$content,$matches,PREG_SET_ORDER);
+		// look for names of people or important strings of 2+ words that start with capitals e.g Federal Reserve Bank or Barack Hussein Obama
+		// this is not perfect and will not handle Irish type surnames O'Hara etc
+		preg_match_all("/((\b[A-Z][^A-Z\s\.,;:]+)(\s+[A-Z][^A-Z\s\.,;:]+)+\b)/u",$content,$matches,PREG_SET_ORDER);
 
 		// found some results
 		if($matches){
@@ -262,7 +323,8 @@ class StrictlyAutoTags{
 				$searchtags[$pat] = trim($pat);
 			}
 		}
-			
+		
+		unset($match,$matches);
 	}
 
 	/**
@@ -277,6 +339,48 @@ class StrictlyAutoTags{
 
 		return $input;
 	}
+
+
+	/**
+	 * check the content to see if the amount of content that is parsable is above the allowed threshold
+	 *
+	 * @param string
+	 * @return boolean
+	 */
+	function ValidContent($content){
+
+		// strip everything not space or uppercase/lowercase letters
+		$content	= $this->StripNonWords($content);
+
+		// count the total number of words
+		$word_count = str_word_count($content);
+
+		// no words? nothing to analyse
+		if($word_count == 0){
+			return false;
+		}
+
+		// count the number of capitalised words
+		$capital_count = $this->CountCapitals($content);
+
+		if($capital_count > 0){
+			// check percentage - if its set to 0 then we can only skip the content if its all capitals
+			if($this->ignorepercentage > 0){
+				$per = round(($capital_count / $word_count) * 100);
+
+				if($per > $this->ignorepercentage){
+					return false;	
+				}
+			}else{
+				if($word_count == $capital_count){
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
 
 	/**
 	 * Parse post content to discover new tags and then rank matching tags so that only the most appropriate are added to a post
@@ -310,34 +414,48 @@ class StrictlyAutoTags{
 			return $addtags;	
 		}
 
+		// if we are looking for new tags then check the major sections to see what percentage of words are capitalised
+		// as that makes it hard to look for important names and strings
+		if($this->autodiscover){
+			
+			$discovercontent = "";
 
-		// if we are looking for new tags then can we trust the title? Some authors like to put each word in capitals
-		// or capitalise the first letter of each word which would mean our autodisovery techniques would throw false positives
-		// so lets check our title first
-		
-		if($autodiscover && $this->TrustTitle($title)){
+			// ensure title is not full of capitals
+			if($this->ValidContent($title)){
+				$discovercontent .= " " . $title . " ";				
+			}
 
-			// add space to the end and beginning to make matching easier
-			$content			= " " . $article . " " . $excerpt . " " . $title . " ";
-			$discovercontent	= $content;
+			// ensure article is not full of capitals
+			if($this->ValidContent($article)){
+				$discovercontent .= " " . $article . " ";					
+			}
 
+			// ensure excerpt  is not full of capitals
+			if($this->ValidContent($excerpt)){
+				$discovercontent .= " " . $excerpt . " ";					
+			}
+			
+		}else{			
+			$discovercontent	= "";
+		}
+
+		// if we are doing a special parse of the title we don't need to add it to our content as well
+		if($this->ranktitle){
+			$content			= " " . $article . " " . $excerpt . " ";
 		}else{
-			// cannot trust title so only look in the article and excerpt for new tags
-			$discovercontent	= " " . $article . " " . $excerpt. " ";
-			$content			= $discovercontent . $title . " ";
-
+			$content			= " " . $article . " " . $excerpt . " " . $title . " ";
 		}
 
 		// set working variable which will be decreased when tags have been found
-		$maxtags = $this->maxtags;
+		$maxtags			= $this->maxtags;
 
 
 		// reformat content to remove plurals and punctuation
 		$content			= $this->FormatContent($content);
 		$discovercontent	= $this->FormatContent($discovercontent);
 
-		// now if we are looking for new tags
-		if($this->autodiscover){
+		// now if we are looking for new tags and we actually have some valid content to check
+		if($this->autodiscover && !empty($discovercontent)){
 			
 			// look for Acronyms in content
 			// the searchtag array is passed by reference to prevent copies of arrays and merges later on
@@ -349,209 +467,178 @@ class StrictlyAutoTags{
 			// look for names and important sentences 2-4 words all capitalised
 			$this->MatchNames($discovercontent,$searchtags);
 		}
-
 		
-		// if we have a searchtag array and are looking in the title (if ranktitle is set) then we need to join any terms in the DB
-		// with our existing tags for a pattern match. Therefore to prevent an array merge THEN an implode 
-		// I return the DB data as a string first to cut down on memory swaps during array merges
-
 		
 		// get existing tags from the DB as we can use these as well as any new ones we just discovered
 		global $wpdb;
 
+		// just get all the terms from the DB in array format
+	
+		$dbterms = $wpdb->get_col("
+				SELECT	DISTINCT name
+				FROM	{$wpdb->terms} AS t
+				JOIN	{$wpdb->term_taxonomy} AS tt ON t.term_id = tt.term_id
+				WHERE	tt.taxonomy = 'post_tag'
+			");
+		
+		// if we have got some names and Acronyms then add them to our DB terms
+		// as well as the search terms we found
+		$c = count($searchtags);
+		$d = count($dbterms);
+		
+		if($c > 0 && $d > 0){
+
+			// join the db terms to those we found earlier
+			$terms = array_merge($dbterms,$searchtags);
+		
+			// remove duplicates which come from discovering new tags that already match existing stored tags
+			$terms = array_unique($terms);
+			
+		}elseif($c > 0){
+
+			// just set terms to those we found through autodiscovery
+			$terms = $searchtags;
+
+		}elseif($d > 0){
+
+			// just set terms to db results
+			$terms = $dbterms;
+		}
+
+		// clean up		
+		unset($searchtags,$dbterms);
+		
+		// if we have no terms to search with then quit now
+		if(!isset($terms) || !is_array($terms)){
+			// return empty array
+			return $addtags;
+		}
+
+		
+		// do we rank terms in the title higher?
 		if($this->ranktitle){
 
-			$dbtermresults = $wpdb->get_col("
-					SELECT	GROUP_CONCAT( DISTINCT name ORDER By Name SEPARATOR '|') as terms
-					FROM	$wpdb->terms AS t
-					JOIN	$wpdb->term_taxonomy AS tt ON t.term_id = tt.term_id
-					WHERE	tt.taxonomy = 'post_tag'
-				");
-
-			$vals = trim($dbtermresults[0]);
-					
-			// cleanup ASAP
-			unset($dbtermresults);
-
-			// add the search terms we found
-			if(count($searchtags) > 0){
-				// search tags shouldn't contain special regex chars as we replaced all non A-Za-z1-9 earlier
-				$vals = str_replace(" ","\s",$this->FormatRegEx($vals) . "|" . implode($searchtags,"|"));
-			}
-
-			// add space to either side of title to make matching easier
-			$title = " " . $title . " ";
-			
-			// any keywords found in the title matching our combined list of tags automatically get added
-			$pattern = "/\b(" . $vals . ")\b/i";
-
-			if(preg_match_all($pattern,$title,$matches,PREG_SET_ORDER)){
-			
-
-				if($matches){
-					
-					$count	= 0;
-					$rem	= ""; // holds items to remove 
-
-					foreach($matches as $match){
-						
-						$pat = trim($match[1]);
-
-						if(!empty($pat)){
-							
-							// don't add any more than the user specified
-
-							if($maxtags != -1 || $count < $maxtags){
-								
-								// add this tag to our return list
-								$addtags[] = $pat;
-
-								// also add tag to a remove list
-								$rem .= $pat . "|";
-
-								$count++;
-
-								// reached limit so exit
-								if($maxtags != -1 && $count == $maxtags) break;
-
-							}
-						}
-					}
-
-					// remove all tags we found in the title from our combo list as we don't want to be searching for them in the content
-					// as well. Use a simple regex to update our combo string. Saves on a array_unique call.
-					if(!empty($rem)){
-
-						$regex = "(" . str_replace(" ","\s",substr($rem,0,-1)) . ")";
-
-						$vals = preg_replace($regex,"",$vals);
-					}
-
-					// explode our combo string into an array we can use for searching within our content
-					$terms = explode("|",str_replace("\s"," ",$vals));
-
-					// if we have a limit on the number of tags then ensure our max counter takes off the number of tags found in the title
-					if($maxtags != -1 && $count > 0){
-
-						$maxtags -= $count;
-
-						// have we reached our limit
-						if($maxtags == 0){
-
-							// yes we have
-							// no need to check the content as we found ALL our tags in the title
-							return $addtags;
-						}
-					}
-				}
-			}else{				
-				// no tags found in the title so reformat our regex back into an array to search the main content with
-				$terms = explode("|",str_replace("\s"," ",$vals));
-			}
-
-		}else{
-		
-			// just get all the terms from the DB in array format
-		
-			$dbterms = $wpdb->get_col("
-					SELECT	DISTINCT name
-					FROM	{$wpdb->terms} AS t
-					JOIN	{$wpdb->term_taxonomy} AS tt ON t.term_id = tt.term_id
-					WHERE	tt.taxonomy = 'post_tag'
-				");
-			
-			// if we have got some names and Acronyms then add them to our DB terms
-			// add the search terms we found
-			$c = count($searchtags);
-			$d = count($dbterms);
-
-			// if we have got some names and Acronyms then add them to our DB terms
-			// add the search terms we found
-			if($c > 0){
-				
-				if( $d > 0){
-
-					$terms = array_merge($dbterms,$searchtags);
-					
-					// remove duplicates
-					$terms = array_unique($terms);
-					
-				}else{
-					$terms = $searchtags;					
-				}
-			
-				unset($searchtags,$dbterms);
-			
-			}elseif($d > 0){
-
-				// set terms to db results
-				$terms = $dbterms;
-
-				unset($searchtags,$dbterms);
-			}else{
-				// cleanup before exiting
-				unset($searchtags,$dbterms);
-
-				// return empty array
-				return $addtags;
-			}
+			// parse the title with our terms adding tags by reference into the tagstack
+			// as we want to ensure tags in the title are always tagged we tweak the hitcount by adding 1000
+			// in future expand this so we can add other content to search e.g anchors, headers each with their own ranking
+			$this->SearchContent($title,$terms,$tagstack,1000);
 		}
 
+		// now parse the main piece of content
+		$this->SearchContent($content,$terms,$tagstack,0);
 		
-		// the $terms array we now have will just contain words NOT already added to the $addtags array and will contain all tags from
-		// the DB as well as any we found earlier.
+		// cleanup
+		unset($terms,$term);
+	
+		// take the top X items
+		if($maxtags != -1 && count($tagstack) > $maxtags){
 
-		if(count($terms)>0){
-
-			// now loop through our content looking for the highest number of matching tags as we don't want to add a tag
-			// just because it appears once as that single word would possibly be irrelevant to the posts context.
-			foreach($terms as $term){
-
-				// safety check
-				if(strlen($terms) > 1){
-
-					// for an accurate search use preg_match_all with word boundaries
-					// as substr_count doesn't always return the correct number from tests I did
-					
-					$regex = "/\b" . $this->FormatRegEx( $term ) . "\b/";
-
-					//echo "term = " . $term . " - regex = " . $regex . "<br>";
-
-					$i = preg_match_all($regex,$content,$matches);
-
-					// if found then store it with the no of occurances
-					if($i > 0){
-
-						// add term and hit count to our array
-						$tagstack[] = array("term"=>$term,"count"=>$i);
-
-					}
-				}
-			}
-
-			// sort array in reverse order so we have our highest hits first
-			rsort($tagstack);
-
-			// take the top X items
-			if($maxtags != -1 && count($tagstack) > $maxtags){
-
-				// sort our results in decending order using our hitcount
-				uasort($tagstack, array($this,'HitCount'));
-				
-				// return only the results we need
-				$tagstack = array_slice($tagstack, 0, $maxtags);
-			}
-
-			// add our results to the array we return which will be added to the post
-			foreach($tagstack as $item=>$tag){
-				$addtags[] = $tag['term'];
-			}
+			// sort our results in decending order using our hitcount
+			uasort($tagstack, array($this,'HitCount'));
+			
+			// return only the results we need
+			$tagstack = array_slice($tagstack, 0, $maxtags);
 		}
+
+		// add our results to the array we return which will be added to the post
+		foreach($tagstack as $item=>$tag){
+			$addtags[] = $tag['term'];
+		}
+		
+
+		// we don't need to worry about dupes e.g tags added when the rank title check ran and then also added later
+		// as Wordpress ensures duplicate taxonomies are not added to the DB
 		
 		// return array of post tags
 		return $addtags;
 
 	}
+
+	/**
+	 * parses content with a supplied array of terms looking for matches
+	 *
+	 * @param string content
+	 * @param array $terms
+	 * @param array $tagstack	
+	 * @param integer $tweak	 
+	 */
+	function SearchContent($content,$terms,&$tagstack,$tweak){
+
+		if(empty($content) || !is_array($terms) || !is_array($tagstack)){
+			return;
+		}
+
+		// now loop through our content looking for the highest number of matching tags as we don't want to add a tag
+		// just because it appears once as that single word would possibly be irrelevant to the posts context.
+		foreach($terms as $term){
+
+			// safety check in case some BS gets into the DB!
+			if(strlen($term) > 1){
+
+				// for an accurate search use preg_match_all with word boundaries
+				// as substr_count doesn't always return the correct number from tests I did
+				
+				$regex = "/\b" . $this->FormatRegEx( $term ) . "\b/";
+
+				$i = preg_match_all($regex,$content,$matches);
+
+				// if found then store it with the no of occurances it appeared e.g its hit count
+				if($i > 0){
+
+					// if we are tweaking the hitcount e.g for ranking title tags higher
+					if($tweak > 0){
+						$i = $i + $tweak;
+					}
+
+					// do we add all tags whether or not they appear nested inside other matches
+					if($this->nestedtags == AUTOTAG_BOTH){
+	
+						// add term and hit count to our array
+						$tagstack[] = array("term"=>$term,"count"=>$i);
+					
+					// must be AUTOTAG_SHORT
+					}else{
+
+						$ignore = false;
+						
+						// loop through existing tags checking for nested matches e.g New York appears in New York City 						
+						foreach($tagstack as $key=>$value){
+
+							$oldterm = $value['term'];
+							$oldcount= $value['count'];
+			
+							// check whether our new term is already in one of our old terms
+							if(stripos($oldterm,$term)!==false){
+								
+								// we found our term inside a longer one and as we are keeping the shortest version we need to add
+								// the other tags hit count before deletng it as if it was a ranked title we want this version to show
+								$i = $i + (int)$oldcount;
+
+								// remove our previously stored tag as we only want the smallest version						
+								unset($tagstack[$key]);
+							
+							// check whether our old term is in our new one
+							}elseif(stripos($term,$oldterm)!==false){
+								
+								// yes it is so keep our short version in the stack and ignore our new term								
+								$ignore = true;
+								break;
+							}
+						}
+					
+						// do we add our new term
+						if(!$ignore){							
+							// add term and hit count to our array
+							$tagstack[] = array("term"=>$term,"count"=>$i);
+						}
+					}
+				}
+			}
+		}
+
+		// the $tagstack was passed by reference so no need to return it
+	}
+
 
 	/**
 	 * used when sorting tag hit count to compare two array items hitcount
@@ -586,16 +673,27 @@ class StrictlyAutoTags{
 		if ( !is_array($options) )
 		{
 			// This array sets the default options for the plugin when it is first activated.
-			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4);
+			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_BOTH);
+		}else{
+
+			// check defaults in case of new functionality added to plugin after installation
+			if(IsNothing($options['nestedtags'])){
+				$options['nestedtags'] = AUTOTAG_BOTH;
+			}
+
+			if(IsNothing($options['noisewords'])){
+				$options['noisewords'] = $this->defaultnoisewords;
+			}
+
+			if(IsNothing($options['ignorepercentage'])){
+				$options['ignorepercentage'] = 50;
+			}
 		}
 
-		// set internal members
-		$this->autodiscover = $options['autodiscover'];
+		// set internal members		
+		$this->SetValues($options);
 
-		$this->ranktitle	= $options['ranktitle'];
-
-		$this->maxtags		= $options['maxtags'];
-
+		// return options
 		return $options;
 	}
 
@@ -609,13 +707,31 @@ class StrictlyAutoTags{
 		update_option('strictlyautotags', $options);
 
 		// set internal members
-		$this->autodiscover = $options['autodiscover'];
+		$this->SetValues($options);
+	}
+	
+	/**
+	 * sets internal member properties with the values from the options array
+	 *
+	 * @param object $object
+	 */
+	function SetValues($options){
+		
+		$this->autodiscover		= $options['autodiscover'];
 
-		$this->ranktitle	= $options['ranktitle'];
+		$this->ranktitle		= $options['ranktitle'];
 
-		$this->maxtags		= $options['maxtags'];
+		$this->maxtags			= $options['maxtags'];
+
+		$this->ignorepercentage	= $options['ignorepercentage'];
+
+		$this->noisewords		= $options['noisewords'];
+
+		$this->nestedtags		= $options['nestedtags'];
+
 	}
 
+	
 	/**
 	 * Admin page for backend management of plugin
 	 *
@@ -623,19 +739,51 @@ class StrictlyAutoTags{
 	function AdminOptions(){
 
 		// get saved options
-		$options = $this->GetOptions();
+		$options	 = $this->GetOptions();
+
+		// message to show to admin if input is invalid
+		$msg		= "";
 
 		// if form has been submitted then save new values
 		if ( $_POST['strictlyautotags-submit'] )
 		{
 			$options['autodiscover']= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
-			$options['ranktitle']	= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));
+			$options['ranktitle']	= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
+			$options['nestedtags']	= strip_tags(stripslashes($_POST['strictlyautotags-nestedtags']));
+
+			$ignorepercentage		= trim(strip_tags(stripslashes($_POST['strictlyautotags-ignorepercentage'])));			
+			$noisewords				= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords'])));			
+
+			// check format is word|word|word
+			if(empty($noisewords)){
+				$noisewords = $this->defaultnoisewords;
+			}else{
+				$noisewords = strtolower($noisewords);
+
+				if( preg_match("/^([a-z]+\|[a-z]*)+$/",$noisewords)){	
+					$options['noisewords']	= $noisewords;
+				}else{
+					$msg .= __('The noise words you entered are in an invalid format.<br />','strictlyautotags');
+				}
+			}
 
 			// only set if its numeric
 			$maxtags = strip_tags(stripslashes($_POST['strictlyautotags-maxtags']));
 
 			if(is_numeric($maxtags) && $maxtags <= 20){
 				$options['maxtags']		= $maxtags;
+			}else{
+				$msg .= __('The value you entered for Max Tags was invalid.<br />','strictlyautotags');
+			}
+
+			if(is_numeric($ignorepercentage) && ($ignorepercentage >= 0 || $ignorepercentage <= 100)){
+				$options['ignorepercentage']		= $ignorepercentage;
+			}else{
+				$msg .= __('The value your entered for the Ignore Capitals Percentage was invalid.<br />','strictlyautotags');
+			}
+			
+			if(!empty($msg)){
+				$msg = substr($msg,0,strlen($msg)-6);
 			}
 
 			// save new values to the DB
@@ -652,12 +800,23 @@ class StrictlyAutoTags{
 				.notes{
 					display:block;					
 				}	
+				p.error{
+					font-weight:bold;
+					color:red;
+				}
 				#StrictlyAutoTagsAdmin ul{
 					list-style-type:circle !important;
 					padding-left:18px;
 				}
 				#StrictlyAutoTagsAdmin label{
 					font-weight:bold;
+				}
+				#strictlyautotags-noisewords{
+					width:600px;
+					height:250px;
+				}
+				#lblnoisewords{
+					vertical-align:top;
 				}
 				</style>';
 
@@ -671,9 +830,14 @@ class StrictlyAutoTags{
 				<li>'.__('Existing tags will also be used to find relevant tags within the post.', 'strictlyautotags').'</li>
 				<li>'.__('Set the maximum number of tags to append to a post to a suitable amount. Setting the number too high could mean that tags that only appear once might be added.', 'strictlyautotags').'</li>
 				<li>'.__('Treat tags found in the post title as especially important by enabling the Rank Title option.', 'strictlyautotags').'</li>
+				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
 				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li></ul>';
 
 		echo	'<h3>'.__('AutoTag Options', 'strictlyautotags').'</h3>';
+
+		if(!empty($msg)){
+			echo '<p class="error">' . $msg . '</p>';
+		}
 
 		echo	'<div><form method="post">';
 	
@@ -695,7 +859,24 @@ class StrictlyAutoTags{
 				<span class="notes">'.__('Maximum no of tags to save (20 max)', 'strictlyautotags').'</span>
 				</div>';
 
-	
+		echo	'<div class="tagopt">
+				<input type="text" name="strictlyautotags-ignorepercentage" id="strictlyautotags-ignorepercentage" value="' . $options['ignorepercentage'] . '" />
+				<label for="strictlyautotags-ignorepercentage">'.__('Ignore Capitals Percentage','strictlyautotags').'</label>
+				<span class="notes">'.__('Badly formatted content that contains too many capitalised words can cause false positives when discovering new tags. This option allows you to tell the system to ignore auto discovery if the percentage of capitalised words is greater than the specified threshold)', 'strictlyautotags').'</span>
+				</div>';
+
+		echo	'<div class="tagopt">
+				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagsboth" value="' . AUTOTAG_BOTH . '" ' . ((IsNothing($options['nestedtags']) || $options['nestedtags']==AUTOTAG_BOTH  ) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagsboth">'.__('Tag All Versions','strictlyautotags').'</label>
+				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagsshort" value="' . AUTOTAG_SHORT . '" ' . (($options['nestedtags'] ) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagsshort">'.__('Tag Shortest Version','strictlyautotags').'</label>				
+				<span class="notes">'.__('This option determines how nested tags are handled e.g <strong><em>New York, New York City, New York City Fire Department</em></strong> all contain the words <strong><em>New York</em></strong>. Setting this option to <strong>Tag All</strong> will mean all 3 get tagged. Setting it to <strong>Tag shortest</strong> will mean the shortest match e.g <strong><em>New York</em></strong> gets tagged.', 'strictlyautotags').'</span>
+				</div>';
+
+		echo	'<div class="tagopt">
+				<textarea name="strictlyautotags-noisewords" id="strictlyautotags-noisewords">' . $options['noisewords'] . '</textarea>
+				<label id="lblnoisewords" for="strictlyautotags-noisewords">'.__('Noise Words','strictlyautotags').'</label>
+				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.)', 'strictlyautotags').'</span>
+				</div>';
+
 		echo	'<input type="hidden" id="strictlyautotags-submit" name="strictlyautotags-submit" value="1" />';
 
 		echo	'<p class="submit"><input value="'.__('Save Options', 'strictlyautotags').'" type="submit"></form></p></div>';

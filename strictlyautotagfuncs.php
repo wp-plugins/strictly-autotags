@@ -3,6 +3,13 @@
 Compatibility functions for the strictlyautotags.class.php plugin 
 */
 
+// set up constants used by the AutoTag method
+if(!defined('AUTOTAG_BOTH')){
+	define('AUTOTAG_BOTH',0);
+}
+if(!defined('AUTOTAG_SHORT')){
+	define('AUTOTAG_SHORT',1);
+}
 
 
 if(!function_exists('ShowDebug')){
@@ -14,6 +21,8 @@ if(!function_exists('ShowDebug')){
 
 	/**
 	 * function to output debug to page
+	 *
+	 * @param string $msg
 	 */
 	function ShowDebug($msg){
 		if(DEBUG){
@@ -23,6 +32,26 @@ if(!function_exists('ShowDebug')){
 		}
 	}
 }
+
+
+if(!function_exists('IsNothing')){
+
+	/**
+	 * Checks whether a value is set and not empty
+	 *
+	 * @param variant $val
+	 * @return boolean
+	 */
+	function IsNothing($val){
+		if(isset($val)){
+			if(!empty($val)){
+				return false;
+			}
+		}
+		return true;		
+	}
+}
+	
 
 // handle any future wordpress update which may or may not remove add_filters and add_actions
 

@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2
 Tested up to: 2.9.2
-Stable tag: 1.3
+Stable tag: 1.4
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -84,3 +84,13 @@ The CIA apologised for the allegations and promised to review its policy of usin
 * Added extra safety check to term parser to handle previosuly entered bad terms
 * Added IsNoiseWord function in to check for capitalised noise words
 * Changed regular expressions to remove all non word characters instead of some punctuation
+
+= 1.4 =
+* Added new config option Ignore Percentage which sets the percentage of content when capitalised to ignore during auto discovery
+* Added new config option Noise Words which allows user to set the list of noise words to ignore during auto discovery
+* Added new config option Nested Tags which sets how multiple occurring nested tags such as New York, New York City, New York City Fire Department are handled
+* changed regular expression that matches names to match any number of words
+* Added new functions IsNoiseWord, CountCapitals, StripNonWords, ValidContent, SearchContent to strictlyautotags.class.php
+* Added new function IsNothing to strictlyautotagfuncs.php
+* Removed unneccessary rsort call
+* Changed the coding for merging the stored tags and newly discovered ones
