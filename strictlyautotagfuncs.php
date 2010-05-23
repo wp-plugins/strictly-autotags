@@ -27,7 +27,12 @@ if(!function_exists('ShowDebug')){
 	function ShowDebug($msg){
 		if(DEBUG){
 			if(!empty($msg)){
-				echo htmlspecialchars($msg) . "<br>";
+				if(is_array($msg)){
+					print_r($msg);
+					echo "<br />";
+				}else{
+					echo htmlspecialchars($msg) . "<br>";
+				}
 			}
 		}
 	}

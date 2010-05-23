@@ -165,7 +165,7 @@ class StrictlyAutoTags{
 			if($this->autodiscover){
 				// ensure capitals next to full stops are decapitalised but only if the word is single e.g
 				// change ". The world" to ". the" but not ". United States"
-				$content = preg_replace("/(\.[”’\"]?\s*[A-Z][a-z]+\s[a-z])/ue","strtolower('$1')",$content);
+				$content = preg_replace("/(\.[”’\"]?\s*[A-Z][a-z]+\s[a-z])/e","strtolower('$1')",$content);
 			}
 
 			// remove plurals
@@ -200,13 +200,28 @@ class StrictlyAutoTags{
 		}
 	}
 
+	/**
+	 * Checks whether a word is a roman numeral
+	 *
+	 * @param string $word
+	 * @return boolean
+	 */
+	function IsRomanNumeral($word){
+
+		if(preg_match("/^M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/",$word)){
+			return true;
+		}else{
+			return false;
+		}
+	}
+
 	/*
 	 * removes noise words from a given string
 	 *
 	 * @param string
 	 * @return string
 	 */
-	function RemoveNoiseWords($content){		
+	protected function RemoveNoiseWords($content){		
 
 		$content = preg_replace($this->removenoisewordsregex," ",$content);
 
@@ -219,7 +234,7 @@ class StrictlyAutoTags{
 	 * @param string
 	 * @return integer
 	 */
-	function CountCapitals($words){
+	protected function CountCapitals($words){
 		
 		$no_caps =	preg_match_all("/\b[A-Z][A-Za-z]*\b/",$words,$matches);			
 
@@ -232,10 +247,10 @@ class StrictlyAutoTags{
 	 * @param string
 	 * @return string
 	 */
-	function StripNonWords($words){
+	protected function StripNonWords($words){
 
 		// strip everything not space or uppercase/lowercase
-		$words = preg_replace("/[^A-Za-z\s]/u","",$words);
+		$words = preg_replace("/[^A-Za-z\s]/","",$words);
 	
 		return $words;
 	}
@@ -258,8 +273,8 @@ class StrictlyAutoTags{
 				
 				$pat = $match[1];
 
-				// ignore noise words who someone has capitalised!
-				if(!$this->IsNoiseWord($pat)){
+				// ignore noise words who someone has capitalised as well as roman numerals which may be part of something else e.g World War II
+				if(!$this->IsNoiseWord($pat) && !$this->IsRomanNumeral($pat)){
 					// add in the format key=value to make removing items easy and quick plus we don't waste overhead running
 					// array_unique to remove duplicates!					
 					$searchtags[$pat] = trim($pat);
@@ -311,7 +326,7 @@ class StrictlyAutoTags{
 
 		// look for names of people or important strings of 2+ words that start with capitals e.g Federal Reserve Bank or Barack Hussein Obama
 		// this is not perfect and will not handle Irish type surnames O'Hara etc
-		preg_match_all("/((\b[A-Z][^A-Z\s\.,;:]+)(\s+[A-Z][^A-Z\s\.,;:]+)+\b)/u",$content,$matches,PREG_SET_ORDER);
+		@preg_match_all("/((\b[A-Z][^A-Z\s\.,;:]+)(\s+[A-Z][^A-Z\s\.,;:]+)+\b)/u",$content,$matches,PREG_SET_ORDER);
 
 		// found some results
 		if($matches){
@@ -333,7 +348,7 @@ class StrictlyAutoTags{
 	 * @param string $input
 	 * @return string
 	 */
-	function FormatRegEx($input){
+	protected function FormatRegEx($input){
 
 		$input = preg_replace("@([$^|()*+?.\[\]{}])@","\\\\$1",$input);
 
@@ -347,7 +362,7 @@ class StrictlyAutoTags{
 	 * @param string
 	 * @return boolean
 	 */
-	function ValidContent($content){
+	protected function ValidContent($content){
 
 		// strip everything not space or uppercase/lowercase letters
 		$content	= $this->StripNonWords($content);
@@ -388,7 +403,7 @@ class StrictlyAutoTags{
 	 * @param object $object
 	 * @return array
 	 */
-	function AutoTag($object){
+	public function AutoTag($object){
 
 		// skip posts with tags already added
 		if ( get_the_tags($object->ID) != false) {
@@ -562,7 +577,7 @@ class StrictlyAutoTags{
 	 * @param array $tagstack	
 	 * @param integer $tweak	 
 	 */
-	function SearchContent($content,$terms,&$tagstack,$tweak){
+	protected function SearchContent($content,$terms,&$tagstack,$tweak){
 
 		if(empty($content) || !is_array($terms) || !is_array($tagstack)){
 			return;
@@ -580,7 +595,7 @@ class StrictlyAutoTags{
 				
 				$regex = "/\b" . $this->FormatRegEx( $term ) . "\b/";
 
-				$i = preg_match_all($regex,$content,$matches);
+				$i = @preg_match_all($regex,$content,$matches);
 
 				// if found then store it with the no of occurances it appeared e.g its hit count
 				if($i > 0){
@@ -647,7 +662,7 @@ class StrictlyAutoTags{
 	 * @param array $b
 	 * @return integer
 	 */
-	function HitCount($a, $b) {
+	protected function HitCount($a, $b) {
 		return $b['count'] - $a['count'];
 	}
 
@@ -655,7 +670,7 @@ class StrictlyAutoTags{
 	 * Register AdminOptions with Wordpress
 	 *
 	 */
-	function RegisterAdminPage() {
+	public function RegisterAdminPage() {
 		add_options_page('Strictly Auto Tags', 'Strictly Auto Tags', 10, basename(__FILE__), array(&$this,'AdminOptions'));	
 	}
 
@@ -664,7 +679,7 @@ class StrictlyAutoTags{
 	 *	 
 	 * @return array
 	 */
-	function GetOptions(){
+	protected function GetOptions(){
 
 		// get saved options from wordpress DB
 		$options = get_option('strictlyautotags');
@@ -702,7 +717,7 @@ class StrictlyAutoTags{
 	 *
 	 * @param object $object
 	 */
-	function SaveOptions($options){
+	protected function SaveOptions($options){
 
 		update_option('strictlyautotags', $options);
 
@@ -715,7 +730,7 @@ class StrictlyAutoTags{
 	 *
 	 * @param object $object
 	 */
-	function SetValues($options){
+	protected function SetValues($options){
 		
 		$this->autodiscover		= $options['autodiscover'];
 
@@ -736,7 +751,7 @@ class StrictlyAutoTags{
 	 * Admin page for backend management of plugin
 	 *
 	 */
-	function AdminOptions(){
+	public function AdminOptions(){
 
 		// get saved options
 		$options	 = $this->GetOptions();

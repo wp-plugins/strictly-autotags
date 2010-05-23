@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2
 Tested up to: 2.9.2
-Stable tag: 1.4
+Stable tag: 1.5
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -94,3 +94,9 @@ The CIA apologised for the allegations and promised to review its policy of usin
 * Added new function IsNothing to strictlyautotagfuncs.php
 * Removed unneccessary rsort call
 * Changed the coding for merging the stored tags and newly discovered ones
+
+= 1.5 =
+* Added IsRomanNumeral function to skip values identified as Aconyms that are Roman Numerals
+* Modifed a few regular expressions using /u which cause errors in cerain cases
+* Added some error handling on some preg_match statements to prevent errors where unknowable tags or patterns cause issues
+* Updated the ShowDebug statement in the function library to handle arrays
