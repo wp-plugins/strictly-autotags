@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: Version 1.5
+ * Version: Version 1.6
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -174,6 +174,9 @@ class StrictlyAutoTags{
 			// now remove anything not a letter or number
 			$content = preg_replace("/[^\w\d\s\.,]/"," ",$content);
 			
+			// replace new lines with a full stop so we don't get cases of two unrelated strings being matched
+			$content = preg_replace("/\r\n/",". ",$content);
+
 			// remove excess space
 			$content = preg_replace("/\s{2,}/"," ",$content);			
 
@@ -419,11 +422,13 @@ class StrictlyAutoTags{
 		// potential tags to add
 		$searchtags = array();
 
+		
 		// ensure all html entities have been decoded
 		$article	= html_entity_decode(strip_tags($object->post_content));
 		$excerpt	= html_entity_decode($object->post_excerpt);
 		$title		= html_entity_decode($object->post_title);
 
+		
 		// no need to trim as empty checks for space
 		if(empty($article) && empty($excerpt) && empty($title)){		
 			return $addtags;	
@@ -437,8 +442,11 @@ class StrictlyAutoTags{
 
 			// ensure title is not full of capitals
 			if($this->ValidContent($title)){
-				$discovercontent .= " " . $title . " ";				
+
+				// add a full stop to ensure words at the end of the title don't accidentally match those in the content during auto discovery
+				$discovercontent .= " " . $title . ". ";				
 			}
+
 
 			// ensure article is not full of capitals
 			if($this->ValidContent($article)){
@@ -453,6 +461,7 @@ class StrictlyAutoTags{
 		}else{			
 			$discovercontent	= "";
 		}
+
 
 		// if we are doing a special parse of the title we don't need to add it to our content as well
 		if($this->ranktitle){
@@ -528,7 +537,7 @@ class StrictlyAutoTags{
 			// return empty array
 			return $addtags;
 		}
-
+		                          
 		
 		// do we rank terms in the title higher?
 		if($this->ranktitle){
@@ -539,6 +548,7 @@ class StrictlyAutoTags{
 			$this->SearchContent($title,$terms,$tagstack,1000);
 		}
 
+		
 		// now parse the main piece of content
 		$this->SearchContent($content,$terms,$tagstack,0);
 		
@@ -563,7 +573,7 @@ class StrictlyAutoTags{
 
 		// we don't need to worry about dupes e.g tags added when the rank title check ran and then also added later
 		// as Wordpress ensures duplicate taxonomies are not added to the DB
-		
+	
 		// return array of post tags
 		return $addtags;
 
@@ -582,6 +592,9 @@ class StrictlyAutoTags{
 		if(empty($content) || !is_array($terms) || !is_array($tagstack)){
 			return;
 		}
+
+		// remove noise words now so that any tags that we discovered earlier will match
+		$content = $this->RemoveNoiseWords($content);
 
 		// now loop through our content looking for the highest number of matching tags as we don't want to add a tag
 		// just because it appears once as that single word would possibly be irrelevant to the posts context.
