@@ -152,6 +152,78 @@ class StrictlyAutoTags{
 	}
 	
 	/**
+	 * Updates existing posts with tags
+	 * The $all_posts param specifies whether all posts are re-tagged or only those without tags
+	 *
+	 * @param bool  $all_posts
+	 * @return int
+	 */
+	public function ReTagPosts( $all_posts=false ) {
+		
+		set_time_limit(0);
+
+		global $wpdb;
+
+		$updated = 0;
+
+		// in future rewrite this with a branch so that if we are looking at posts with no tags then
+		// we only return from the DB those posts that have no tags
+
+		$sql = "SELECT id 
+				FROM " . $wpdb->prefix ."posts 
+				WHERE post_password='' AND post_status='publish' AND post_type='post' 
+				ORDER BY post_modified_gmt DESC;";
+
+
+		ShowDebugAutoTag($sql);
+
+		$posts = $wpdb->get_results($sql);
+		
+		foreach($posts as $post){
+
+			// definitley a better way to do this but would involve a major rewrite!
+
+			ShowDebugAutoTag("get post id " . $post->id);
+
+			$object = get_post($post->id);
+			if ( $object == false || $object == null ) {
+				return false;
+			}		
+			
+
+			$posttags = $this->AutoTag( $object,  $all_posts );
+
+			if($posttags !== false){
+			
+				$updated++;
+				
+				ShowDebugAutoTag("we have " .  count($posttags) . " tags to add to this post");
+
+				// add tags to post
+				// Append tags if tags to add
+				if ( count($posttags) > 0) {
+					
+					// Add tags to posts
+					wp_set_object_terms( $object->ID, $posttags, 'post_tag', true );
+					
+					// Clean cache
+					if ( 'page' == $object->post_type ) {
+						clean_page_cache($object->ID);
+					} else {
+						clean_post_cache($object->ID);
+					}			
+				}
+			}
+
+			unset($object,$posttags);
+		}
+
+		unset($posts);		
+
+		return $updated;
+	}
+
+	/**
 	 * Format content to make searching for new tags easier
 	 *
 	 * @param string $content
@@ -406,11 +478,13 @@ class StrictlyAutoTags{
 	 * @param object $object
 	 * @return array
 	 */
-	public function AutoTag($object){
+	public function AutoTag($object,$all_posts=false){
 
-		// skip posts with tags already added
-		if ( get_the_tags($object->ID) != false) {
-			return false;
+		if(!$all_posts){
+			// skip posts with tags already added
+			if ( get_the_tags($object->ID) != false) {
+				return false;
+			}
 		}
 
 		// tags to add to post
@@ -770,10 +844,35 @@ class StrictlyAutoTags{
 		$options	 = $this->GetOptions();
 
 		// message to show to admin if input is invalid
-		$msg		= "";
+		$errmsg = $msg		= "";
 
-		// if form has been submitted then save new values
-		if ( $_POST['strictlyautotags-submit'] )
+
+		if ( $_POST['RepostSubmit'] )
+		{
+
+			ShowDebugAutoTag("ReTag Posts");
+
+			// do we retag all posts?
+			$allposts	= (bool) strip_tags(stripslashes($_POST['strictlyautotags-tagless']));	
+
+			ShowDebugAutoTag("allposts = " . $allposts);
+
+			$updated = $this->ReTagPosts($allposts);
+
+			if($updated == 0){
+				$msg = sprintf(__('No Posts were re-tagged','strictlyautotags'),$updated);
+			}else if($updated == 1){
+				$msg = sprintf(__('1 Post was re-tagged','strictlyautotags'),$updated);
+			}else{
+				$msg = sprintf(__('%d Posts have been re-tagged','strictlyautotags'),$updated);
+			}
+		}
+
+
+
+
+		// if our option form has been submitted then save new values
+		if ( $_POST['SaveOptionsSubmit'] )
 		{
 			$options['autodiscover']= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
 			$options['ranktitle']	= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
@@ -791,7 +890,7 @@ class StrictlyAutoTags{
 				if( preg_match("/^([a-z]+\|[a-z]*)+$/",$noisewords)){	
 					$options['noisewords']	= $noisewords;
 				}else{
-					$msg .= __('The noise words you entered are in an invalid format.<br />','strictlyautotags');
+					$errmsg .= __('The noise words you entered are in an invalid format.<br />','strictlyautotags');
 				}
 			}
 
@@ -801,21 +900,23 @@ class StrictlyAutoTags{
 			if(is_numeric($maxtags) && $maxtags <= 20){
 				$options['maxtags']		= $maxtags;
 			}else{
-				$msg .= __('The value you entered for Max Tags was invalid.<br />','strictlyautotags');
+				$errmsg .= __('The value you entered for Max Tags was invalid.<br />','strictlyautotags');
 			}
 
 			if(is_numeric($ignorepercentage) && ($ignorepercentage >= 0 || $ignorepercentage <= 100)){
 				$options['ignorepercentage']		= $ignorepercentage;
 			}else{
-				$msg .= __('The value your entered for the Ignore Capitals Percentage was invalid.<br />','strictlyautotags');
+				$errmsg .= __('The value your entered for the Ignore Capitals Percentage was invalid.<br />','strictlyautotags');
 			}
 			
-			if(!empty($msg)){
-				$msg = substr($msg,0,strlen($msg)-6);
+			if(!empty($errmsg)){
+				$errmsg = substr($errmsg,0,strlen($errmsg)-6);
 			}
 
 			// save new values to the DB
 			update_option('strictlyautotags', $options);
+
+			$msg = __('Options Saved','strictlyautotags');
 		}
 
 		echo	'<style type="text/css">
@@ -831,6 +932,10 @@ class StrictlyAutoTags{
 				p.error{
 					font-weight:bold;
 					color:red;
+				}
+				p.msg{
+					font-weight:bold;
+					color:green;
 				}
 				#StrictlyAutoTagsAdmin ul{
 					list-style-type:circle !important;
@@ -859,13 +964,30 @@ class StrictlyAutoTags{
 				<li>'.__('Set the maximum number of tags to append to a post to a suitable amount. Setting the number too high could mean that tags that only appear once might be added.', 'strictlyautotags').'</li>
 				<li>'.__('Treat tags found in the post title as especially important by enabling the Rank Title option.', 'strictlyautotags').'</li>
 				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
-				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li></ul>';
+				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li>
+				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li></ul>';
 
-		echo	'<h3>'.__('AutoTag Options', 'strictlyautotags').'</h3>';
+		
 
 		if(!empty($msg)){
-			echo '<p class="error">' . $msg . '</p>';
+			echo '<p class="msg">' . $msg . '</p>';
 		}
+		if(!empty($errmsg)){
+			echo '<p class="error">' . $errmsg . '</p>';
+		}
+
+		echo	'<div><form name="retag" id="retag" method="post">
+				<h3>'.__('Re-Tag Existing Posts','strictlyautotags').'</h3>
+
+				<div class="tagopt">
+				<input type="checkbox" name="strictlyautotags-tagless" id="strictlyautotags-tagless" value="true" ' . ((!IsNothing($allposts)) ? 'checked="checked"' : '') . '/>
+				<label for="strictlyautotags-tagless">'.__('Re-Tag All Posts','strictlyautotags').'</label>
+				<span class="notes">'.__('Checking this will option will mean that all your posts will be re-tagged otherwise only posts without any current tags will be parsed for appropriate tags', 'strictlyautotags').'</span>
+				</div>
+				<p class="submit"><input value="'.__('Re-Tag Posts', 'strictlyautotags').'" type="submit" name="RepostSubmit" id="RepostSubmit"></form></p>
+				</form></div>';
+
+		echo	'<h3>'.__('AutoTag Options', 'strictlyautotags').'</h3>';
 
 		echo	'<div><form method="post">';
 	
@@ -905,9 +1027,7 @@ class StrictlyAutoTags{
 				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.)', 'strictlyautotags').'</span>
 				</div>';
 
-		echo	'<input type="hidden" id="strictlyautotags-submit" name="strictlyautotags-submit" value="1" />';
-
-		echo	'<p class="submit"><input value="'.__('Save Options', 'strictlyautotags').'" type="submit"></form></p></div>';
+		echo	'<p class="submit"><input value="'.__('Save Options', 'strictlyautotags').'" type="submit" name="SaveOptionsSubmit" id="SaveOptionsSubmit"></form></p></div>';
 
 		echo	'<div class="donate"><h3>'.__('Donate to Stictly Software', 'strictlyautotags').'</h3>';
 
@@ -918,7 +1038,29 @@ class StrictlyAutoTags{
 				<input type="hidden" name="cmd" value="_s-xclick"><br />
 				<input type="hidden" name="hosted_button_id" value="6427652"><br />
 				<input type="image" src="https://www.paypal.com/en_GB/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online.">
-				<br /></form></div></div>';
+				<br /></form></div>
+				
+				<div>
+					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
+					<ul>
+						<li><a href="http://wordpress.org/extend/plugins/strictly-system-check/">'.__('Strictly System Check','strictlyautotags').'</a>
+							<p>'.__('Strictly Auto Tags is a Wordpress plugin that allows you to automatically check your sites status at scheduled intervals to ensure it\'s running smoothly and it will run some system checks and send you an email if anything doesn\'t meet your requirements.','strictlyautotags').'</p>
+						</li>
+						<li><a href="http://www.strictly-software.com/online-tools">'.__('Strictly Online Tools','strictlyautotags').'</a>
+							<p>'.__('Strictly Online Tools is a suite of free online tools I have developed which include encoders, unpackers, translators, compressors, scanners and much more.','strictlyautotags').'</p>
+						</li>
+						<li><a href="http://www.hattrickheaven.com">'.__('Hattrick Heaven','strictlyautotags').'</a>
+							<p>'.__('If you like football then this site is for you. Get the latest football news, scores and league standings from around the web on one site. All content is crawled, scraped and reformated in real time so there is no need to leave the site when following news links. Check it out for yourself. ','strictlyautotags').'</p>
+						</li>
+						<li><a href="http://www.fromthestables.com">'.__('From The Stables','strictlyautotags').'</a>
+							<p>'.__('If you like horse racing or betting and want that extra edge when using Betfair then this site is for you. It\'s a members only site that gives you inside information straight from the UK\'s top racing trainers every day.','strictlyautotags').'</p>
+						</li>
+						<li><a href="http://www.darkpolitricks.com">'.__('Dark Politricks  ','strictlyautotags').'</a>
+							<p>'.__('Tired of being fed news from inside the box? Want to know the important news that the mainstream media doesn\'t want to report on? Then this site is for you. Alternative news, comment and analysis all in one place.','strictlyautotags').'</p>
+						</li>						
+					</ul>
+				</div>			
+				</div>';
 
 	}
 }

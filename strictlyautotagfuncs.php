@@ -12,11 +12,11 @@ if(!defined('AUTOTAG_SHORT')){
 }
 
 
-if(!function_exists('ShowDebug')){
+if(!function_exists('ShowDebugAutoTag')){
 
 	// if the DEBUG constant hasn't been set then create it and turn it off
-	if(!defined('DEBUG')){
-		define('DEBUG',false);
+	if(!defined('DEBUGAUTOTAG')){
+		define('DEBUGAUTOTAG',false);
 	}
 
 	/**
@@ -24,8 +24,8 @@ if(!function_exists('ShowDebug')){
 	 *
 	 * @param string $msg
 	 */
-	function ShowDebug($msg){
-		if(DEBUG){
+	function ShowDebugAutoTag($msg){
+		if(DEBUGAUTOTAG){
 			if(!empty($msg)){
 				if(is_array($msg)){
 					print_r($msg);
