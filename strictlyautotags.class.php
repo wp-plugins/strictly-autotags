@@ -1044,7 +1044,7 @@ class StrictlyAutoTags{
 					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
 					<ul>
 						<li><a href="http://wordpress.org/extend/plugins/strictly-system-check/">'.__('Strictly System Check','strictlyautotags').'</a>
-							<p>'.__('Strictly Auto Tags is a Wordpress plugin that allows you to automatically check your sites status at scheduled intervals to ensure it\'s running smoothly and it will run some system checks and send you an email if anything doesn\'t meet your requirements.','strictlyautotags').'</p>
+							<p>'.__('Strictly System Check is a Wordpress plugin that allows you to automatically check your sites status at scheduled intervals to ensure it\'s running smoothly and it will run some system checks and send you an email if anything doesn\'t meet your requirements.','strictlyautotags').'</p>
 						</li>
 						<li><a href="http://www.strictly-software.com/online-tools">'.__('Strictly Online Tools','strictlyautotags').'</a>
 							<p>'.__('Strictly Online Tools is a suite of free online tools I have developed which include encoders, unpackers, translators, compressors, scanners and much more.','strictlyautotags').'</p>
