@@ -393,12 +393,6 @@ class StrictlyAutoTags{
 	 */
 	protected function MatchNames($content,&$searchtags){
 
-		// create noise word regex
-		$regex = "/\b(" . $this->noisewords . ")\b/i";
-
-		// remove noise words from content first
-		$content = preg_replace($regex," ",$content);
-
 		// look for names of people or important strings of 2+ words that start with capitals e.g Federal Reserve Bank or Barack Hussein Obama
 		// this is not perfect and will not handle Irish type surnames O'Hara etc
 		@preg_match_all("/((\b[A-Z][^A-Z\s\.,;:]+)(\s+[A-Z][^A-Z\s\.,;:]+)+\b)/u",$content,$matches,PREG_SET_ORDER);
