@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: Version 1.7
+ * Version: Version 1.8
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -102,19 +102,21 @@ class StrictlyAutoTags{
 		// create some regular expressions required by the parser
 		
 		// create regex to identify a noise word
-		$this->isnoisewordregex		= "/^(?:" . $this->noisewords . ")$/i";
+		$this->isnoisewordregex		= "/^(?:" . preg_quote($this->noisewords,"/") . ")$/i";
 
 		// create regex to replace all noise words in a string
-		$this->removenoisewordsregex= "/\b(" . $this->noisewords . ")\b/i";
+		$this->removenoisewordsregex= "/\b(" . preg_quote($this->noisewords,"/") . ")\b/i";
 
 		// load any language specific text
-		load_textdomain('strictlyautotags', dirname(__FILE__).'/language/'.get_locale().'.mo');
+		load_textdomain('strictlyautotags'	, dirname(__FILE__).'/language/'.get_locale().'.mo');
 
 		// add options to admin menu
-		add_action('admin_menu', array(&$this, 'RegisterAdminPage'));
+		add_action('admin_menu'				, array(&$this, 'RegisterAdminPage'));
 		
 		// set a function to run whenever posts are saved that will call our AutoTag function
-		add_actions( array('save_post', 'publish_post', 'post_syndicated_item'), array(&$this, 'SaveAutoTags') );
+		add_action('save_post'				, array(&$this, 'SaveAutoTags'));
+		add_action('publish_post'			, array(&$this, 'SaveAutoTags'));
+		add_action('post_syndicated_item'	, array(&$this, 'SaveAutoTags'));
 
 	}
 
@@ -126,6 +128,7 @@ class StrictlyAutoTags{
 	 * @return boolean
 	 */
 	public function SaveAutoTags( $post_id = null, $post_data = null ) {
+
 		$object = get_post($post_id);
 		if ( $object == false || $object == null ) {
 			return false;
@@ -170,7 +173,7 @@ class StrictlyAutoTags{
 		// we only return from the DB those posts that have no tags
 
 		$sql = "SELECT id 
-				FROM " . $wpdb->prefix ."posts 
+				FROM {$wpdb->posts}
 				WHERE post_password='' AND post_status='publish' AND post_type='post' 
 				ORDER BY post_modified_gmt DESC;";
 
@@ -368,7 +371,7 @@ class StrictlyAutoTags{
 	 * @param array $searchtags
 	 */
 	protected function MatchCountries($content,&$searchtags){
-		preg_match_all("/\s(Afghanistan|Albania|Algeria|American\sSamoa|Andorra|Angola|Anguilla|Antarctica|Antigua\sand\sBarbuda|Arctic\sOcean|Argentina|Armenia|Aruba|Ashmore\sand\sCartier\sIslands|Australia|Austria|Azerbaijan|Bahrain|Baker\sIsland|Bangladesh|Barbados|Bassas\sda\sIndia|Belarus|Belgium|Belize|Benin|Bermuda|Bhutan|Bolivia|Bosnia\sand\sHerzegovina|Botswana|Bouvet\sIsland|Brazil|British\sVirgin\sIslands|Brunei|Bulgaria|Burkina\sFaso|Burma|Burundi|Cambodia|Cameroon|Canada|Cape\sVerde|Cayman\sIslands|Central\sAfrican\sRepublic|Chad|Chile|China|Christmas\sIsland|Clipperton\sIsland|Cocos\s(Keeling)\sIslands|Colombia|Comoros|Congo|Cook\sIslands|Coral\sSea\sIslands|Costa\sRica|Croatia|Cuba|Cyprus|Czech\sRepublic|Denmark|Djibouti|Dominica|Dominican\sRepublic|Ecuador|Eire|Egypt|El\sSalvador|Equatorial\sGuinea|England|Eritrea|Estonia|Ethiopia|Europa\sIsland|Falkland\sIslands\s|Islas\sMalvinas|Faroe\sIslands|Fiji|Finland|France|French\sGuiana|French\sPolynesia|French\sSouthern\sand\sAntarctic\sLands|Gabon|Gaza\sStrip|Georgia|Germany|Ghana|Gibraltar|Glorioso\sIslands|Greece|Greenland|Grenada|Guadeloupe|Guam|Guatemala|Guernsey|Guinea|Guinea-Bissau|Guyana|Haiti|Heard\sIsland\sand\sMcDonald\sIslands|Holy\sSee\s(Vatican\sCity)|Honduras|Hong\sKong|Howland\sIsland|Hungary|Iceland|India|Indonesia|Iran|Iraq|Ireland|Israel|Italy|Ivory\sCoast|Jamaica|Jan\sMayen|Japan|Jarvis\sIsland|Jersey|Johnston\sAtoll|Jordan|Juan\sde\sNova\sIsland|Kazakstan|Kenya|Kingman\sReef|Kiribati|Korea|Korea|Kuwait|Kyrgyzstan|Laos|Latvia|Lebanon|Lesotho|Liberia|Libya|Liechtenstein|Lithuania|Luxembourg|Macau|Macedonia\sThe\sFormer\sYugoslav\sRepublic\sof|Madagascar|Malawi|Malaysia|Maldives|Mali|Malta|Man\sIsle\sof|Marshall\sIslands|Martinique|Mauritania|Mauritius|Mayotte|Mexico|Micronesia\sFederated\sStates\sof|Midway\sIslands|Moldova|Monaco|Mongolia|Montenegro|Montserrat|Morocco|Mozambique|Namibia|Nauru|Navassa\sIsland|Nepal|Netherlands|Netherlands\sAntilles|New\sCaledonia|New\sZealand|Nicaragua|Nigeria|Niue|Norfolk\sIsland|Northern\sIreland|Northern\sMariana\sIslands|Norway|Oman|Pakistan|Palau|Palmyra\sAtoll|Panama|Papua\sNew\sGuinea|Paracel\sIslands|Paraguay|Peru|Philippines|Pitcairn\sIslands|Poland|Portugal|Puerto\sRico|Qatar|Reunion|Romania|Russia|Rwanda|Saint\sHelena|Saint\sKitts\sand\sNevis|Saint\sLucia|Saint\sPierre\sand\sMiquelon|Saint\sVincent\sand\sthe\sGrenadines|San\sMarino|Sao\sTome\sand\sPrincipe|Saudi\sArabia|Scotland|Senegal|Serbia|Seychelles|Sierra\sLeone|Singapore|Slovakia|Slovenia|Solomon\sIslands|Somalia|South\sAfrica|South\sGeorgia\sand\sthe\sSouth\sSandwich\sIslands|Spain|Spratly\sIslands|Sri\sLanka|Sudan|Suriname|Svalbard|Swaziland|Sweden|Switzerland|Syria|Taiwan|Tajikistan|Tanzania|Thailand|The\sBahamas|The\sGambia|Togo|Tokelau|Tonga|Trinidad\sand\sTobago|Tromelin\sIsland|Tunisia|Turkey|Turkmenistan|Turks\sand\sCaicos\sIslands|Tuvalu|Uganda|Ukraine|United\sArab\sEmirates|UAE|United\sKingdom|UK|United\sStates\sof\sAmerica|USA|Uruguay|Uzbekistan|Vanuatu|Venezuela|Vietnam|Virgin\sIslands|Wake\sIsland|Wales|Wallis\sand\sFutuna|West\sBank|Western\sSahara|Western\sSamoa|Yemen|Zaire|Zambia|Zimbabwe|Europe|Western\sEurope|North\sAmerica|South\sAmerica|Asia|South\sEast\sAsia|Central\sAsia|The\sCaucasus|Middle\sEast|Far\sEast|Scandinavia|Africa|North\sAfrica|North\sPole|South\sPole|Central\sAmerica|Caribbean)\s/i",$content,$matches, PREG_SET_ORDER);
+		preg_match_all("/\s(Afghanistan|Albania|Algeria|American\sSamoa|Andorra|Angola|Anguilla|Antarctica|Antigua\sand\sBarbuda|Arctic\sOcean|Argentina|Armenia|Aruba|Ashmore\sand\sCartier\sIslands|Australia|Austria|Azerbaijan|Bahrain|Baker\sIsland|Bangladesh|Barbados|Bassas\sda\sIndia|Belarus|Belgium|Belize|Benin|Bermuda|Bhutan|Bolivia|Bosnia\sand\sHerzegovina|Botswana|Bouvet\sIsland|Brazil|British\sVirgin\sIslands|Brunei|Bulgaria|Burkina\sFaso|Burma|Burundi|Cambodia|Cameroon|Canada|Cape\sVerde|Cayman\sIslands|Central\sAfrican\sRepublic|Chad|Chile|China|Christmas\sIsland|Clipperton\sIsland|Cocos\s(Keeling)\sIslands|Colombia|Comoros|Congo|Cook\sIslands|Coral\sSea\sIslands|Costa\sRica|Croatia|Cuba|Cyprus|Czech\sRepublic|Denmark|Djibouti|Dominica|Dominican\sRepublic|Ecuador|Eire|Egypt|El\sSalvador|Equatorial\sGuinea|England|Eritrea|Estonia|Ethiopia|Europa\sIsland|Falkland\sIslands\s|Islas\sMalvinas|Faroe\sIslands|Fiji|Finland|France|French\sGuiana|French\sPolynesia|French\sSouthern\sand\sAntarctic\sLands|Gabon|Gaza\sStrip|Georgia|Germany|Ghana|Gibraltar|Glorioso\sIslands|Greece|Greenland|Grenada|Guadeloupe|Guam|Guatemala|Guernsey|Guinea|Guinea-Bissau|Guyana|Haiti|Heard\sIsland\sand\sMcDonald\sIslands|Holy\sSee\s(Vatican\sCity)|Honduras|Hong\sKong|Howland\sIsland|Hungary|Iceland|India|Indonesia|Iran|Iraq|Ireland|Israel|Italy|Ivory\sCoast|Jamaica|Jan\sMayen|Japan|Jarvis\sIsland|Jersey|Johnston\sAtoll|Jordan|Juan\sde\sNova\sIsland|Kazakstan|Kenya|Kingman\sReef|Kiribati|Korea|Korea|Kuwait|Kyrgyzstan|Laos|Latvia|Lebanon|Lesotho|Liberia|Libya|Liechtenstein|Lithuania|Luxembourg|Macau|Macedonia\sThe\sFormer\sYugoslav\sRepublic\sof|Madagascar|Malawi|Malaysia|Maldives|Mali|Malta|Man\sIsle\sof|Marshall\sIslands|Martinique|Mauritania|Mauritius|Mayotte|Mexico|Micronesia\sFederated\sStates\sof|Midway\sIslands|Moldova|Monaco|Mongolia|Montenegro|Montserrat|Morocco|Mozambique|Namibia|Nauru|Navassa\sIsland|Nepal|Netherlands|Netherlands\sAntilles|New\sCaledonia|New\sZealand|Nicaragua|Nigeria|Niue|Norfolk\sIsland|Northern\sIreland|Northern\sMariana\sIslands|Norway|Oman|Pakistan|Palau|Palmyra\sAtoll|Panama|Papua\sNew\sGuinea|Paracel\sIslands|Paraguay|Peru|Philippines|Pitcairn\sIslands|Poland|Portugal|Puerto\sRico|Qatar|Reunion|Romania|Russia|Rwanda|Saint\sHelena|Saint\sKitts\sand\sNevis|Saint\sLucia|Saint\sPierre\sand\sMiquelon|Saint\sVincent\sand\sthe\sGrenadines|San\sMarino|Sao\sTome\sand\sPrincipe|Saudi\sArabia|Scotland|Senegal|Serbia|Seychelles|Sierra\sLeone|Singapore|Slovakia|Slovenia|Solomon\sIslands|Somalia|South\sAfrica|South\sGeorgia\sand\sthe\sSouth\sSandwich\sIslands|Spain|Spratly\sIslands|Sri\sLanka|Sudan|Suriname|Svalbard|Swaziland|Sweden|Switzerland|Syria|Taiwan|Tajikistan|Tanzania|Thailand|The\sBahamas|The\sGambia|Togo|Tokelau|Tonga|Trinidad\sand\sTobago|Tromelin\sIsland|Tunisia|Turkey|Turkmenistan|Turks\sand\sCaicos\sIslands|Tuvalu|Uganda|Ukraine|United\sArab\sEmirates|UAE|United\sKingdom|UK|United\sStates\sof\sAmerica|USA|Uruguay|Uzbekistan|Vanuatu|Venezuela|Vietnam|Virgin\sIslands|Wake\sIsland|Wales|Wallis\sand\sFutuna|West\sBank|Western\sSahara|Western\sSamoa|Yemen|Zaire|Zambia|Zimbabwe|Europe|Western\sEurope|North\sAmerica|South\sAmerica|Asia|South\sEast\sAsia|Central\sAsia|The\sCaucasus|Middle\sEast|Far\sEast|Scandinavia|Africa|North\sAfrica|North\sPole|South\sPole|Central\sAmerica|Caribbean|London|New\sYork|Paris|Moscow|Beijing|Tokyo|Washington\sDC|Los\sAngeles|Miami|Rome|Sydney|Mumbai|Baghdad|Kabul|Islamabad|Berlin)\s/i",$content,$matches, PREG_SET_ORDER);
 
 
 		if($matches){
@@ -409,19 +412,6 @@ class StrictlyAutoTags{
 		}
 		
 		unset($match,$matches);
-	}
-
-	/**
-	 * formats strings so they can be used in regular expressions easily by escaping special chars used in pattern matching
-	 *
-	 * @param string $input
-	 * @return string
-	 */
-	protected function FormatRegEx($input){
-
-		$input = preg_replace("@([$^|()*+?.\[\]{}])@","\\\\$1",$input);
-
-		return $input;
 	}
 
 
@@ -674,7 +664,7 @@ class StrictlyAutoTags{
 				// for an accurate search use preg_match_all with word boundaries
 				// as substr_count doesn't always return the correct number from tests I did
 				
-				$regex = "/\b" . $this->FormatRegEx( $term ) . "\b/";
+				$regex = "/\b" . preg_quote( $term , "/") . "\b/";
 
 				$i = @preg_match_all($regex,$content,$matches);
 
@@ -834,6 +824,11 @@ class StrictlyAutoTags{
 	 */
 	public function AdminOptions(){
 
+		// ensure we are in admin area
+		if(!is_admin()){
+			die("You are not allowed to view this page");
+		}
+
 		// get saved options
 		$options	 = $this->GetOptions();
 
@@ -841,10 +836,15 @@ class StrictlyAutoTags{
 		$errmsg = $msg		= "";
 
 
+
+		
 		if ( $_POST['RepostSubmit'] )
 		{
 
 			ShowDebugAutoTag("ReTag Posts");
+
+			// check nonce
+			check_admin_referer("retag","strictlyretagnonce");
 
 			// do we retag all posts?
 			$allposts	= (bool) strip_tags(stripslashes($_POST['strictlyautotags-tagless']));	
@@ -863,11 +863,13 @@ class StrictlyAutoTags{
 		}
 
 
-
-
 		// if our option form has been submitted then save new values
 		if ( $_POST['SaveOptionsSubmit'] )
 		{
+			// check nonce
+			check_admin_referer("tagoptions","strictlytagoptionsnonce");
+
+
 			$options['autodiscover']= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
 			$options['ranktitle']	= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
 			$options['nestedtags']	= strip_tags(stripslashes($_POST['strictlyautotags-nestedtags']));
@@ -970,7 +972,9 @@ class StrictlyAutoTags{
 			echo '<p class="error">' . $errmsg . '</p>';
 		}
 
+		
 		echo	'<div><form name="retag" id="retag" method="post">
+				'. wp_nonce_field("retag","strictlyretagnonce",false,false) .'
 				<h3>'.__('Re-Tag Existing Posts','strictlyautotags').'</h3>
 
 				<div class="tagopt">
@@ -983,7 +987,8 @@ class StrictlyAutoTags{
 
 		echo	'<h3>'.__('AutoTag Options', 'strictlyautotags').'</h3>';
 
-		echo	'<div><form method="post">';
+		echo	'<div><form method="post">
+				'. wp_nonce_field("tagoptions","strictlytagoptionsnonce",false,false) ;
 	
 		echo	'<div class="tagopt">
 				<input type="checkbox" name="strictlyautotags-autodiscover" id="strictlyautotags-autodiscover" value="true" ' . (($options['autodiscover']) ? 'checked="checked"' : '') . '/>
@@ -998,7 +1003,7 @@ class StrictlyAutoTags{
 				</div>';
 
 		echo	'<div class="tagopt">
-				<input type="text" name="strictlyautotags-maxtags" id="strictlyautotags-maxtags" value="' . $options['maxtags'] . '" />
+				<input type="text" name="strictlyautotags-maxtags" id="strictlyautotags-maxtags" value="' . esc_attr($options['maxtags']) . '" />
 				<label for="strictlyautotags-maxtags">'.__('Max Tags','strictlyautotags').'</label>
 				<span class="notes">'.__('Maximum no of tags to save (20 max)', 'strictlyautotags').'</span>
 				</div>';
@@ -1016,7 +1021,7 @@ class StrictlyAutoTags{
 				</div>';
 
 		echo	'<div class="tagopt">
-				<textarea name="strictlyautotags-noisewords" id="strictlyautotags-noisewords">' . $options['noisewords'] . '</textarea>
+				<textarea name="strictlyautotags-noisewords" id="strictlyautotags-noisewords">' . esc_attr($options['noisewords']) . '</textarea>
 				<label id="lblnoisewords" for="strictlyautotags-noisewords">'.__('Noise Words','strictlyautotags').'</label>
 				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.)', 'strictlyautotags').'</span>
 				</div>';
@@ -1037,6 +1042,9 @@ class StrictlyAutoTags{
 				<div>
 					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
 					<ul>
+						<li><a href="http://www.strictly-software.com/plugins/strictly-google-sitemap">'.__('Strictly Google Sitemap','strictlyautotags').'</a>
+							<p>'.__('Strictly Google Sitemap is a feature rich Wordpress plugin built for sites requiring high performance. Not only does it use a tiny number of database queries compared to other plugins it uses less memory and was designed specifically for under performing or low spec systems. As well as offering all the features of other sitemap plugins it brings all those missing features such as sitemap index files, XML validation, scheduled builds, configuration analysis and SEO reports.','strictlyautotags').'</p>
+						</li>
 						<li><a href="http://wordpress.org/extend/plugins/strictly-system-check/">'.__('Strictly System Check','strictlyautotags').'</a>
 							<p>'.__('Strictly System Check is a Wordpress plugin that allows you to automatically check your sites status at scheduled intervals to ensure it\'s running smoothly and it will run some system checks and send you an email if anything doesn\'t meet your requirements.','strictlyautotags').'</p>
 						</li>
