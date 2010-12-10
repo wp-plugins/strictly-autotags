@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
 Tested up to: 3.0.1
-Stable tag: 1.7
+Stable tag: 1.9
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -62,6 +62,11 @@ The CIA apologised for the allegations and promised to review its policy of usin
 
 3. Save the post and check the number of tags that get added. The plugin should have found a number of words to use even if you have no existing saved tags in your site.
 
+4. Some people have complained that they have added words to the stop/noise word list which still get tagged and think the plugin is broken. This is not the case and the problem
+is usually that you have not removed any saved post tags from the wordpress database that match the noise word first. The noise words are only used in the auto discovery
+stage of the content scanning and any noise words will be ignored. However once the auto discovery stage is over the list of newly discovered tags is added to your current saved
+list of post tags and then the article is re-scanned for relevancy. 
+
 == Changelog ==
 
 = 1.1 =
@@ -110,3 +115,15 @@ The CIA apologised for the allegations and promised to review its policy of usin
 = 1.7 =
 * Added option to re-tag all existing posts or just those currently without tags
 * Modified the MatchNames function so that noise words are not removed from potential matches as this can make too many tags nonsensical.
+
+= 1.8 =
+* Removed my own FormatRegEx method and replaced it's usage with preg_quote
+* Removed usage of the non standard add_actions and replaced it's usage with multiple add_action calls
+* Added some major cities to the MatchCountries method
+* Added nonces to admin page to improve security
+* Added esc_attr to HTML input values
+
+= 1.9 =
+* Added new admin option which allows users to remove under used tags and keep their saved tag list to a manageable size
+* Ability to specify how many articles a tag has to belong to when being cleaned
+* Added extra help text for noise word list to remind people that when they add noise words they should remove them from the saved post tags as well

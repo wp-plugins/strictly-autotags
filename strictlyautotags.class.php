@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 1.8
+ * Version: 1.9
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -18,6 +18,14 @@ ini_set('display_errors', 1);
 require_once(dirname(__FILE__) . "/strictlyautotagfuncs.php");
 
 class StrictlyAutoTags{
+
+	/**
+	* current version of plugin 
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $version = "1.9";
 
    /**
 	* look for new tags by searching for Acronyms and names 
@@ -153,6 +161,78 @@ class StrictlyAutoTags{
 
 		return true;
 	}
+
+	
+				
+
+	/**
+	 * Deletes unused posts or under used tags	 
+	 * $notags is the number of posts a tag must be related to e.g 0 we remove all tags not associated with any post
+	 *
+	 * @param int  $notags
+	 * @return int
+	 */
+	public function CleanTags( $notags=1) {
+		
+		set_time_limit(0);
+
+		global $wpdb;
+
+		$updated = 0;
+
+		// in future rewrite this with a branch so that if we are looking at posts with no tags then
+		// we only return from the DB those posts that have no tags
+
+		$sql = $wpdb->prepare("DELETE a,c
+							FROM	{$wpdb->terms} AS a
+							LEFT JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+							WHERE (
+									c.taxonomy = 'post_tag'
+									AND  c.count <= %d
+								);",$notags);
+		
+
+		ShowDebugAutoTag($sql);
+
+		$updated = $wpdb->query($sql);	
+		
+
+		ShowDebugAutoTag("SQL Query returns " . $updated);
+
+		return $updated;
+	}
+
+	/**
+	 * Finds the number of under used tags in system
+	 *
+	 * @return int
+	 */
+	public function GetUnderusedTags($notags=1)			
+	{
+		global $wpdb;
+
+		$tags = 0;
+
+		// in future rewrite this with a branch so that if we are looking at posts with no tags then
+		// we only return from the DB those posts that have no tags
+
+		$sql =  $wpdb->prepare("SELECT	COUNT(*) as Tags
+								FROM	{$wpdb->terms} wt
+								INNER JOIN {$wpdb->term_taxonomy} wtt 
+									ON	wt.term_id=wtt.term_id
+								WHERE	wtt.taxonomy='post_tag' 
+										AND wtt.count<=%d;",$notags);
+		
+
+		ShowDebugAutoTag($sql);
+
+		$tags = $wpdb->get_var(($sql));		
+
+		return $tags;
+	}
+
+	
+
 	
 	/**
 	 * Updates existing posts with tags
@@ -755,6 +835,7 @@ class StrictlyAutoTags{
 		// get saved options from wordpress DB
 		$options = get_option('strictlyautotags');
 
+		
 		// if there are no saved options then use defaults
 		if ( !is_array($options) )
 		{
@@ -830,14 +911,57 @@ class StrictlyAutoTags{
 		}
 
 		// get saved options
-		$options	 = $this->GetOptions();
+		$options		= $this->GetOptions();
+
+		// get the no of under used tags
+		$notags			= get_option('strictlyautotags_underused');
+
+		if(empty($notags) || !is_numeric($notags)){
+			$notags = 1;
+		}
+		
 
 		// message to show to admin if input is invalid
-		$errmsg = $msg		= "";
+		$errmsg = $msg	= "";
 
 
 
-		
+		if ( $_POST['CleanSubmit'] )
+		{
+
+			ShowDebugAutoTag("Clean Tags");
+
+			// check nonce
+			check_admin_referer("cleanup","strictlycleanupnonce");
+
+			// do we retag all posts?
+			$notags	=  strip_tags(stripslashes($_POST['strictlyautotags-cleanupposts']));	
+
+			ShowDebugAutoTag("notags = " . $notags);
+
+			if(!is_numeric($notags)){
+				$errmsg .= __('The value you entered for No of Tagged Posts was invalid.<br />','strictlyautotags');
+
+				$notags = 1;
+			}else{
+
+				// save new values to the DB
+				update_option('strictlyautotags_underused', $notags);
+
+				ShowDebugAutoTag("Delete all tags related to " . $notags . " or less posts");
+
+				$deleted = $this->CleanTags($notags);
+
+				ShowDebugAutoTag("We deleted " . $deleted . " tags");
+
+				if($deleted == 0){
+					$msg = sprintf(__('No Tags were removed','strictlyautotags'),$deleted);
+				}else{
+					$msg = __('All relevant Tags have been removed','strictlyautotags');
+				}
+			}
+		}
+
 		if ( $_POST['RepostSubmit'] )
 		{
 
@@ -951,7 +1075,7 @@ class StrictlyAutoTags{
 
 		echo	'<div class="wrap" id="StrictlyAutoTagsAdmin">';
 
-		echo	'<h3>'.__('Strictly AutoTags', 'strictlyautotags').'</h3>';
+		echo	'<h3>'.sprintf(__('Strictly AutoTags - Version %s', 'strictlyautotags'),$this->version).'</h3>';
 
 		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p>
 				<ul><li>'.__('Enable Auto Discovery to find new tags.', 'strictlyautotags').'</li>
@@ -961,9 +1085,12 @@ class StrictlyAutoTags{
 				<li>'.__('Treat tags found in the post title as especially important by enabling the Rank Title option.', 'strictlyautotags').'</li>
 				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
 				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li>
-				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li></ul>';
+				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li>
+				<li>'.__('Quickly clean up your system by removing under used saved tags.','strictlyautotags').'</li></ul>';
 
 		
+		// get no of underused tags
+		$underused		= $this->GetUnderusedTags($notags);
 
 		if(!empty($msg)){
 			echo '<p class="msg">' . $msg . '</p>';
@@ -980,9 +1107,21 @@ class StrictlyAutoTags{
 				<div class="tagopt">
 				<input type="checkbox" name="strictlyautotags-tagless" id="strictlyautotags-tagless" value="true" ' . ((!IsNothing($allposts)) ? 'checked="checked"' : '') . '/>
 				<label for="strictlyautotags-tagless">'.__('Re-Tag All Posts','strictlyautotags').'</label>
-				<span class="notes">'.__('Checking this will option will mean that all your posts will be re-tagged otherwise only posts without any current tags will be parsed for appropriate tags', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Checking this will option will mean that all your posts will be re-tagged otherwise only posts without any current tags will be parsed for appropriate tags.', 'strictlyautotags').'</span>
 				</div>
 				<p class="submit"><input value="'.__('Re-Tag Posts', 'strictlyautotags').'" type="submit" name="RepostSubmit" id="RepostSubmit"></form></p>
+				</form></div>';
+
+		echo	'<div><form name="cleanup" id="cleanup" method="post">
+				'. wp_nonce_field("cleanup","strictlycleanupnonce",false,false) .'
+				<h3>'.__('Clean Up Tag Database','strictlyautotags').'</h3>
+				<p>'.sprintf(__('You currently have %d tags that are only associated with %d or less posts.', 'strictlyautotags'), $underused,$notags).'</p>
+				<div class="tagopt">
+				<input type="text" name="strictlyautotags-cleanupposts" id="strictlyautotags-cleanupposts" value="' . esc_attr($notags) . '" />
+				<label for="strictlyautotags-cleanupposts">'.__('No of Tagged Posts','strictlyautotags').'</label>
+				<span class="notes">'.__('Strictly AutoTags can add a lot of tags into your system very quickly and to keep things fast and your tag numbers down it is advisable to clean up your tags reguarly. You may find that you have lots of articles with only one post related to a tag or you may have deleted articles which will have created orphan tags not associated with any articles at all. You should consider deleting redudant or under used tags if you feel they are not providing any benefit to your site. Change the number to the amount of posts to delete tags for e.g selecting 1 means any tags that are associated with 0 or 1 posts will be removed. If you want to know which tags to delete you should use the standard Wordpress Post Tags admin option to manually check and remove tags one by one.', 'strictlyautotags').'</span>
+				</div>
+				<p class="submit"><input value="'.__('Clean Tags', 'strictlyautotags').'" type="submit" name="CleanSubmit" id="CleanSubmit" onclick="return confirm(\'Are you sure you want to remove these tags from your system?\');"></form></p>
 				</form></div>';
 
 		echo	'<h3>'.__('AutoTag Options', 'strictlyautotags').'</h3>';
@@ -993,25 +1132,25 @@ class StrictlyAutoTags{
 		echo	'<div class="tagopt">
 				<input type="checkbox" name="strictlyautotags-autodiscover" id="strictlyautotags-autodiscover" value="true" ' . (($options['autodiscover']) ? 'checked="checked"' : '') . '/>
 				<label for="strictlyautotags-autodiscover">'.__('Auto Discovery','strictlyautotags').'</label>
-				<span class="notes">'.__('Automatically discover new tags on each post', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Automatically discover new tags on each post.', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
 				<input type="checkbox" name="strictlyautotags-ranktitle" id="strictlyautotags-ranktitle" value="true" ' . (($options['ranktitle']) ? 'checked="checked"' : '') . '/>
 				<label for="strictlyautotags-ranktitle">'.__('Rank Title','strictlyautotags').'</label>
-				<span class="notes">'.__('Rank tags found in post titles over those in content', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Rank tags found in post titles over those in content.', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
 				<input type="text" name="strictlyautotags-maxtags" id="strictlyautotags-maxtags" value="' . esc_attr($options['maxtags']) . '" />
 				<label for="strictlyautotags-maxtags">'.__('Max Tags','strictlyautotags').'</label>
-				<span class="notes">'.__('Maximum no of tags to save (20 max)', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Maximum no of tags to save (20 max).', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
 				<input type="text" name="strictlyautotags-ignorepercentage" id="strictlyautotags-ignorepercentage" value="' . $options['ignorepercentage'] . '" />
 				<label for="strictlyautotags-ignorepercentage">'.__('Ignore Capitals Percentage','strictlyautotags').'</label>
-				<span class="notes">'.__('Badly formatted content that contains too many capitalised words can cause false positives when discovering new tags. This option allows you to tell the system to ignore auto discovery if the percentage of capitalised words is greater than the specified threshold)', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Badly formatted content that contains too many capitalised words can cause false positives when discovering new tags. This option allows you to tell the system to ignore auto discovery if the percentage of capitalised words is greater than the specified threshold.', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
@@ -1023,7 +1162,7 @@ class StrictlyAutoTags{
 		echo	'<div class="tagopt">
 				<textarea name="strictlyautotags-noisewords" id="strictlyautotags-noisewords">' . esc_attr($options['noisewords']) . '</textarea>
 				<label id="lblnoisewords" for="strictlyautotags-noisewords">'.__('Noise Words','strictlyautotags').'</label>
-				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.)', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.) <strong>Please check your saved post tags and remove any noise words that already been stored as tags before adding them to this list otherwise they might still be used in future scans.</strong>', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<p class="submit"><input value="'.__('Save Options', 'strictlyautotags').'" type="submit" name="SaveOptionsSubmit" id="SaveOptionsSubmit"></form></p></div>';
