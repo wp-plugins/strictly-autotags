@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 1.9
+ * Version: 2.0
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "1.9";
+	protected $version = "2.0";
 
    /**
 	* look for new tags by searching for Acronyms and names 
@@ -164,6 +164,79 @@ class StrictlyAutoTags{
 
 	
 				
+	/**
+	 * Removes any noise words from the system if they are already used as post tags
+	 *
+	 * @param string $noisewords
+	 * @return bool
+	 */
+	protected function RemoveSavedNoiseWords($noisewords=""){
+
+		ShowDebugAutoTag("IN RemoveSavedNoiseWords");
+
+		set_time_limit(0);
+
+		global $wpdb,$wp_object_cache;
+
+		$deleted = 0;
+
+		if(!empty($noisewords)){
+
+			ShowDebugAutoTag("Format noise words = '$noisewords'");
+
+			// ensure we don't have pipes at beginning or end
+			if(substr($noisewords,0,1) == "|"){
+
+				ShowDebugAutoTag("remove starting pipe");
+
+				$noisewords = substr($noisewords,1,strlen($noisewords));
+			}
+			if(substr($noisewords,-1) == "|"){
+
+				ShowDebugAutoTag("remove trailing pipe");
+
+				$noisewords = substr($noisewords,0,strlen($noisewords)-1);
+			}
+			
+			
+			// wrap in quotes for IN statement and make sure each noise word values is escaped
+			$sqlin = "'" . preg_replace("@\|@","','",addslashes($noisewords)) . "'";
+
+			
+			ShowDebugAutoTag("IN is now $sqlin");
+			
+			// cannot use the prepare function as it will add extra slashes and quotes
+			$sql = sprintf("DELETE a,c
+							FROM	{$wpdb->terms} AS a
+							LEFT JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+							WHERE (
+									c.taxonomy = 'post_tag'
+									AND  a.Name IN(%s)
+								);",$sqlin);
+		
+
+			ShowDebugAutoTag($sql);
+
+			$deleted = $wpdb->query($sql);	
+		
+			if($deleted >0){
+				
+				// clear object cache
+				
+				unset($wp_object_cache->cache);
+				
+				$wp_object_cache->cache = array();
+
+			}
+
+			ShowDebugAutoTag("SQL Query deleted this no of rows == " . $deleted);
+
+
+		}
+
+		return $deleted;
+	}
+
 
 	/**
 	 * Deletes unused posts or under used tags	 
@@ -172,11 +245,11 @@ class StrictlyAutoTags{
 	 * @param int  $notags
 	 * @return int
 	 */
-	public function CleanTags( $notags=1) {
+	protected function CleanTags( $notags=1) {
 		
 		set_time_limit(0);
 
-		global $wpdb;
+		global $wpdb,$wp_object_cache;
 
 		$updated = 0;
 
@@ -196,6 +269,15 @@ class StrictlyAutoTags{
 
 		$updated = $wpdb->query($sql);	
 		
+		if($updated >0){
+			
+			// clear object cache
+				
+			unset($wp_object_cache->cache);
+			
+			$wp_object_cache->cache = array();
+
+		}
 
 		ShowDebugAutoTag("SQL Query returns " . $updated);
 
@@ -207,7 +289,7 @@ class StrictlyAutoTags{
 	 *
 	 * @return int
 	 */
-	public function GetUnderusedTags($notags=1)			
+	protected function GetUnderusedTags($notags=1)			
 	{
 		global $wpdb;
 
@@ -241,7 +323,7 @@ class StrictlyAutoTags{
 	 * @param bool  $all_posts
 	 * @return int
 	 */
-	public function ReTagPosts( $all_posts=false ) {
+	protected function ReTagPosts( $all_posts=false ) {
 		
 		set_time_limit(0);
 
@@ -922,7 +1004,7 @@ class StrictlyAutoTags{
 		
 
 		// message to show to admin if input is invalid
-		$errmsg = $msg	= "";
+		$noisemsg = $errmsg = $msg	= "";
 
 
 
@@ -1001,14 +1083,31 @@ class StrictlyAutoTags{
 			$ignorepercentage		= trim(strip_tags(stripslashes($_POST['strictlyautotags-ignorepercentage'])));			
 			$noisewords				= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords'])));			
 
+			$removenoise			= (bool) strip_tags(stripslashes($_POST['strictlyautotags-removenoise']));
+				
 			// check format is word|word|word
 			if(empty($noisewords)){
 				$noisewords = $this->defaultnoisewords;
 			}else{
 				$noisewords = strtolower($noisewords);
 
+				// make sure the noise words don't start or end with pipes
 				if( preg_match("/^([a-z]+\|[a-z]*)+$/",$noisewords)){	
 					$options['noisewords']	= $noisewords;
+
+					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
+
+					// do we try and remove any saved noise words?
+					if($removenoise){
+
+						ShowDebugAutoTag("Remove any saved noise words");
+
+						if($this->RemoveSavedNoiseWords( $noisewords )){
+							$noisemsg = __('The system has removed all saved noise words from your saved post tag list.<br />','strictlyautotags');
+						}else{
+							$errmsg .= __('The system couldn\'t find any saved post tags matching your current noise word list.<br />','strictlyautotags');
+						}
+					}
 				}else{
 					$errmsg .= __('The noise words you entered are in an invalid format.<br />','strictlyautotags');
 				}
@@ -1037,18 +1136,35 @@ class StrictlyAutoTags{
 			update_option('strictlyautotags', $options);
 
 			$msg = __('Options Saved','strictlyautotags');
+
+			if(!empty($noisemsg)){
+				$msg .= "<br />" . $noisemsg;
+			}
 		}
 
 		echo	'<style type="text/css">
-				.tagopt{
-					margin-top:7px;
+				#StrictlyAutoTagsAdmin h3 {
+					font-size:12px;
+					font-weight:bold;
+					line-height:1;
+					margin:0;
+					padding:7px 9px 4px;
+				}
+				div.inside{
+					padding: 10px;
+				}
+				div.tagopt{
+					margin-top:17px;
 				}
 				.donate{
 					margin-top:30px;
+				}					
+				span.notes{
+					display:		block;
+					padding-left:	5px;
+					font-size:		0.8em;	
+					margin-top:		7px;
 				}
-				.notes{
-					display:block;					
-				}	
 				p.error{
 					font-weight:bold;
 					color:red;
@@ -1068,6 +1184,10 @@ class StrictlyAutoTags{
 					width:600px;
 					height:250px;
 				}
+				div label:first-child{					
+					display:	inline-block;
+					width:		250px;
+				}
 				#lblnoisewords{
 					vertical-align:top;
 				}
@@ -1075,20 +1195,10 @@ class StrictlyAutoTags{
 
 		echo	'<div class="wrap" id="StrictlyAutoTagsAdmin">';
 
-		echo	'<h3>'.sprintf(__('Strictly AutoTags - Version %s', 'strictlyautotags'),$this->version).'</h3>';
+		echo	'<div class="postbox">						
+					<h3 class="hndle">'.sprintf(__('Strictly AutoTags - Version %s', 'strictlyautotags'),$this->version).'</h3>					
+					<div class="inside">';		
 
-		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p>
-				<ul><li>'.__('Enable Auto Discovery to find new tags.', 'strictlyautotags').'</li>
-				<li>'.__('Suitable words such as Acronyms, Names, Countries and other important keywords will then be identified within the post.', 'strictlyautotags').'</li>
-				<li>'.__('Existing tags will also be used to find relevant tags within the post.', 'strictlyautotags').'</li>
-				<li>'.__('Set the maximum number of tags to append to a post to a suitable amount. Setting the number too high could mean that tags that only appear once might be added.', 'strictlyautotags').'</li>
-				<li>'.__('Treat tags found in the post title as especially important by enabling the Rank Title option.', 'strictlyautotags').'</li>
-				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
-				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li>
-				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li>
-				<li>'.__('Quickly clean up your system by removing under used saved tags.','strictlyautotags').'</li></ul>';
-
-		
 		// get no of underused tags
 		$underused		= $this->GetUnderusedTags($notags);
 
@@ -1099,57 +1209,79 @@ class StrictlyAutoTags{
 			echo '<p class="error">' . $errmsg . '</p>';
 		}
 
-		
-		echo	'<div><form name="retag" id="retag" method="post">
-				'. wp_nonce_field("retag","strictlyretagnonce",false,false) .'
-				<h3>'.__('Re-Tag Existing Posts','strictlyautotags').'</h3>
+		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p>
+				<ul><li>'.__('Enable Auto Discovery to find new tags.', 'strictlyautotags').'</li>
+				<li>'.__('Suitable words such as Acronyms, Names, Countries and other important keywords will then be identified within the post.', 'strictlyautotags').'</li>
+				<li>'.__('Existing tags will also be used to find relevant tags within the post.', 'strictlyautotags').'</li>
+				<li>'.__('Set the maximum number of tags to append to a post to a suitable amount. Setting the number too high could mean that tags that only appear once might be added.', 'strictlyautotags').'</li>
+				<li>'.__('Treat tags found in the post title as especially important by enabling the Rank Title option.', 'strictlyautotags').'</li>
+				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
+				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li>
+				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li>
+				<li>'.__('Quickly clean up your system by removing under used saved tags or noise words that have already been tagged.','strictlyautotags').'</li></ul>
+				</div>
+				</div>';
 
+		
+
+		
+		echo	'<form name="retag" id="retag" method="post">
+				<div class="postbox">						
+					<h3 class="hndle">'.__('Re-Tag Existing Posts', 'strictlyautotags').'</h3>					
+					<div class="inside">
+				'. wp_nonce_field("retag","strictlyretagnonce",false,false) .'
 				<div class="tagopt">
-				<input type="checkbox" name="strictlyautotags-tagless" id="strictlyautotags-tagless" value="true" ' . ((!IsNothing($allposts)) ? 'checked="checked"' : '') . '/>
 				<label for="strictlyautotags-tagless">'.__('Re-Tag All Posts','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-tagless" id="strictlyautotags-tagless" value="true" ' . ((!IsNothing($allposts)) ? 'checked="checked"' : '') . '/>
 				<span class="notes">'.__('Checking this will option will mean that all your posts will be re-tagged otherwise only posts without any current tags will be parsed for appropriate tags.', 'strictlyautotags').'</span>
 				</div>
-				<p class="submit"><input value="'.__('Re-Tag Posts', 'strictlyautotags').'" type="submit" name="RepostSubmit" id="RepostSubmit"></form></p>
-				</form></div>';
+				<p class="submit"><input value="'.__('Re-Tag Posts', 'strictlyautotags').'" type="submit" name="RepostSubmit" id="RepostSubmit"></p>
+				</div></div></form>';
 
-		echo	'<div><form name="cleanup" id="cleanup" method="post">
-				'. wp_nonce_field("cleanup","strictlycleanupnonce",false,false) .'
-				<h3>'.__('Clean Up Tag Database','strictlyautotags').'</h3>
+				
+
+		echo	'<form name="cleanup" id="cleanup" method="post">
+				<div class="postbox">						
+				<h3 class="hndle">'.__('Clean Up Tag Database', 'strictlyautotags').'</h3>					
+				<div class="inside">
+				'. wp_nonce_field("cleanup","strictlycleanupnonce",false,false) .'				
 				<p>'.sprintf(__('You currently have %d tags that are only associated with %d or less posts.', 'strictlyautotags'), $underused,$notags).'</p>
 				<div class="tagopt">
-				<input type="text" name="strictlyautotags-cleanupposts" id="strictlyautotags-cleanupposts" value="' . esc_attr($notags) . '" />
 				<label for="strictlyautotags-cleanupposts">'.__('No of Tagged Posts','strictlyautotags').'</label>
+				<input type="text" name="strictlyautotags-cleanupposts" id="strictlyautotags-cleanupposts" value="' . esc_attr($notags) . '" />		
 				<span class="notes">'.__('Strictly AutoTags can add a lot of tags into your system very quickly and to keep things fast and your tag numbers down it is advisable to clean up your tags reguarly. You may find that you have lots of articles with only one post related to a tag or you may have deleted articles which will have created orphan tags not associated with any articles at all. You should consider deleting redudant or under used tags if you feel they are not providing any benefit to your site. Change the number to the amount of posts to delete tags for e.g selecting 1 means any tags that are associated with 0 or 1 posts will be removed. If you want to know which tags to delete you should use the standard Wordpress Post Tags admin option to manually check and remove tags one by one.', 'strictlyautotags').'</span>
 				</div>
-				<p class="submit"><input value="'.__('Clean Tags', 'strictlyautotags').'" type="submit" name="CleanSubmit" id="CleanSubmit" onclick="return confirm(\'Are you sure you want to remove these tags from your system?\');"></form></p>
-				</form></div>';
+				<p class="submit"><input value="'.__('Clean Tags', 'strictlyautotags').'" type="submit" name="CleanSubmit" id="CleanSubmit" onclick="return confirm(\'Are you sure you want to remove these tags from your system?\');"></p>
+				</div></div></form>';
 
-		echo	'<h3>'.__('AutoTag Options', 'strictlyautotags').'</h3>';
-
-		echo	'<div><form method="post">
+		
+		echo	'<form method="post">
+				<div class="postbox">						
+				<h3 class="hndle">'.__('AutoTag Options', 'strictlyautotags').'</h3>					
+				<div class="inside">
 				'. wp_nonce_field("tagoptions","strictlytagoptionsnonce",false,false) ;
 	
 		echo	'<div class="tagopt">
-				<input type="checkbox" name="strictlyautotags-autodiscover" id="strictlyautotags-autodiscover" value="true" ' . (($options['autodiscover']) ? 'checked="checked"' : '') . '/>
 				<label for="strictlyautotags-autodiscover">'.__('Auto Discovery','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-autodiscover" id="strictlyautotags-autodiscover" value="true" ' . (($options['autodiscover']) ? 'checked="checked"' : '') . '/>				
 				<span class="notes">'.__('Automatically discover new tags on each post.', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
-				<input type="checkbox" name="strictlyautotags-ranktitle" id="strictlyautotags-ranktitle" value="true" ' . (($options['ranktitle']) ? 'checked="checked"' : '') . '/>
 				<label for="strictlyautotags-ranktitle">'.__('Rank Title','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-ranktitle" id="strictlyautotags-ranktitle" value="true" ' . (($options['ranktitle']) ? 'checked="checked"' : '') . '/>				
 				<span class="notes">'.__('Rank tags found in post titles over those in content.', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
-				<input type="text" name="strictlyautotags-maxtags" id="strictlyautotags-maxtags" value="' . esc_attr($options['maxtags']) . '" />
 				<label for="strictlyautotags-maxtags">'.__('Max Tags','strictlyautotags').'</label>
+				<input type="text" name="strictlyautotags-maxtags" id="strictlyautotags-maxtags" value="' . esc_attr($options['maxtags']) . '" />
 				<span class="notes">'.__('Maximum no of tags to save (20 max).', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
-				<input type="text" name="strictlyautotags-ignorepercentage" id="strictlyautotags-ignorepercentage" value="' . $options['ignorepercentage'] . '" />
 				<label for="strictlyautotags-ignorepercentage">'.__('Ignore Capitals Percentage','strictlyautotags').'</label>
+				<input type="text" name="strictlyautotags-ignorepercentage" id="strictlyautotags-ignorepercentage" value="' . $options['ignorepercentage'] . '" />				
 				<span class="notes">'.__('Badly formatted content that contains too many capitalised words can cause false positives when discovering new tags. This option allows you to tell the system to ignore auto discovery if the percentage of capitalised words is greater than the specified threshold.', 'strictlyautotags').'</span>
 				</div>';
 
@@ -1160,25 +1292,33 @@ class StrictlyAutoTags{
 				</div>';
 
 		echo	'<div class="tagopt">
-				<textarea name="strictlyautotags-noisewords" id="strictlyautotags-noisewords">' . esc_attr($options['noisewords']) . '</textarea>
 				<label id="lblnoisewords" for="strictlyautotags-noisewords">'.__('Noise Words','strictlyautotags').'</label>
-				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.) <strong>Please check your saved post tags and remove any noise words that already been stored as tags before adding them to this list otherwise they might still be used in future scans.</strong>', 'strictlyautotags').'</span>
+				<textarea name="strictlyautotags-noisewords" id="strictlyautotags-noisewords">' . esc_attr($options['noisewords']) . '</textarea>
+				</div>
+				<div class="tagopt">
+				<label for="strictlyautotags-removenoise">'.__('Remove Saved Noise Tags','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-removenoise" id="strictlyautotags-removenoise" value="false" />				
+				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.) <strong>Whenever you add new noise words to the list you should make sure they are removed from the existing list of saved post tags otherwise they might still get matched. Ticking the Remove Saved Noise Tags option when saving will do this for you.</strong>', 'strictlyautotags').'</span>
 				</div>';
 
-		echo	'<p class="submit"><input value="'.__('Save Options', 'strictlyautotags').'" type="submit" name="SaveOptionsSubmit" id="SaveOptionsSubmit"></form></p></div>';
+		echo	'<p class="submit"><input value="'.__('Save Options', 'strictlyautotags').'" type="submit" name="SaveOptionsSubmit" id="SaveOptionsSubmit"></p></div></div></form>';
 
-		echo	'<div class="donate"><h3>'.__('Donate to Stictly Software', 'strictlyautotags').'</h3>';
+		echo	'<form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+				<div class="postbox">						
+				<h3 class="hndle">'.__('Donate to Stictly Software', 'strictlyautotags').'</h3>					
+				<div class="inside donate">';		
 
 		echo	'<p>'.__('Your help ensures that my work continues to be free and any amount is appreciated.', 'strictlyautotags').'</p>';
 		
-		echo	'<div style="text-align:center;"><br />
-				<form action="https://www.paypal.com/cgi-bin/webscr" method="post"><br />
+		echo	'<div style="text-align:center;"><br /><br />
 				<input type="hidden" name="cmd" value="_s-xclick"><br />
 				<input type="hidden" name="hosted_button_id" value="6427652"><br />
 				<input type="image" src="https://www.paypal.com/en_GB/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online.">
-				<br /></form></div>
+				<br /></div></div></div></form>
 				
-				<div>
+				<div class="postbox">						
+				<h3 class="hndle">'.__('Stictly Software Recommendations', 'strictlyautotags').'</h3>					
+				<div class="inside">				
 					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
 					<ul>
 						<li><a href="http://www.strictly-software.com/plugins/strictly-google-sitemap">'.__('Strictly Google Sitemap','strictlyautotags').'</a>
