@@ -258,7 +258,7 @@ class StrictlyAutoTags{
 
 		$sql = $wpdb->prepare("DELETE a,c
 							FROM	{$wpdb->terms} AS a
-							LEFT JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+							JOIN	{$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
 							WHERE (
 									c.taxonomy = 'post_tag'
 									AND  c.count <= %d
@@ -1092,7 +1092,7 @@ class StrictlyAutoTags{
 				$noisewords = strtolower($noisewords);
 
 				// make sure the noise words don't start or end with pipes
-				if( preg_match("/^([a-z]+\|[a-z]*)+$/",$noisewords)){	
+				if( preg_match("/^([-a-z'1-9]+\|[-a-z'1-9]*)+$/",$noisewords)){	
 					$options['noisewords']	= $noisewords;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -1209,7 +1209,7 @@ class StrictlyAutoTags{
 			echo '<p class="error">' . $errmsg . '</p>';
 		}
 
-		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p>
+		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p><p>'.__('Please remember that this plugin has been developed for the <strong>English language</strong> and will only work with standard English characters e.g A-Z. If you have any problems with the plugin please check that it is not due to UTF-8 characters within the articles you are trying to auto tag.', 'strictlyautotags').'</p>
 				<ul><li>'.__('Enable Auto Discovery to find new tags.', 'strictlyautotags').'</li>
 				<li>'.__('Suitable words such as Acronyms, Names, Countries and other important keywords will then be identified within the post.', 'strictlyautotags').'</li>
 				<li>'.__('Existing tags will also be used to find relevant tags within the post.', 'strictlyautotags').'</li>

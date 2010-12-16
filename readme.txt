@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.0.1
-Stable tag: 2.0
+Stable tag: 2.1
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -130,3 +130,7 @@ The CIA apologised for the allegations and promised to review its policy of usin
 * Added new checkbox option to admin config page called "Remove Saved Noise Tags" which on saving will remove any noise words in the list
 that are currently saved as post tags. This should help the problem where people have thought the system wasn't working due to noise words being matched.
 * Changed the format of the admin save page to make it look nicer
+
+= 2.1 =
+* Fixed issue with noise word validator in the admin area so that it handles apostrophes, numbers and dashes.
+* Updated the text on the admin page to remind people that this plugin only works with English characters e.g A-Z
