@@ -10,7 +10,9 @@ if(!defined('AUTOTAG_BOTH')){
 if(!defined('AUTOTAG_SHORT')){
 	define('AUTOTAG_SHORT',1);
 }
-
+if(!defined('AUTOTAG_LONG')){
+	define('AUTOTAG_LONG',2);
+}
 
 if(!function_exists('ShowDebugAutoTag')){
 

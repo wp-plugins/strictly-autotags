@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.0.1
-Stable tag: 2.1
+Stable tag: 2.2
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -134,3 +134,11 @@ that are currently saved as post tags. This should help the problem where people
 = 2.1 =
 * Fixed issue with noise word validator in the admin area so that it handles apostrophes, numbers and dashes.
 * Updated the text on the admin page to remind people that this plugin only works with English characters e.g A-Z
+
+= 2.2 =
+* Added new "Rank Important Content" option which ranks matches inside certain HTML tags as more important
+* Added new AUTOTAG_LONG option to increase accuracy so that for content such as New York City Fire Department only an exact match is allowed rather than partials such as New York or New York City
+* Removed the RemoveNoiseWords function call from SearchContent and instead added a check for IsNoiseWord before saving tags
+* Added the RemoveNoiseWords function call to the main AutoTag method to remove noise words from the content used for new tag discovery
+* Updated the SearchContent method to increment hitcounts for previously matched tags
+* Fixed bug with noise word regular expression that was caused by using preg_quote which was adding a slash in front of the pipe delimiters

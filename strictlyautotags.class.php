@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.0
+ * Version: 2.2
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.0";
+	protected $version = "2.2";
 
    /**
 	* look for new tags by searching for Acronyms and names 
@@ -42,6 +42,14 @@ class StrictlyAutoTags{
 	* @var bool
 	*/
 	protected $ranktitle; 
+
+	/**
+	* treat tags found in certain html tags such as headers or links as important and increase their ranking
+	*
+	* @access protected
+	* @var bool
+	*/
+	protected $rankhtml; 
 
    /**
 	* The maxiumum number of tags to add to a post
@@ -110,11 +118,11 @@ class StrictlyAutoTags{
 		// create some regular expressions required by the parser
 		
 		// create regex to identify a noise word
-		$this->isnoisewordregex		= "/^(?:" . preg_quote($this->noisewords,"/") . ")$/i";
+		$this->isnoisewordregex		= "/^(?:" . str_replace("\|","|",preg_quote($this->noisewords,"/")) . ")$/i";
 
 		// create regex to replace all noise words in a string
-		$this->removenoisewordsregex= "/\b(" . preg_quote($this->noisewords,"/") . ")\b/i";
-
+		$this->removenoisewordsregex= "/\b(" . str_replace("\|","|",preg_quote($this->noisewords,"/")) . ")\b/i";
+		
 		// load any language specific text
 		load_textdomain('strictlyautotags'	, dirname(__FILE__).'/language/'.get_locale().'.mo');
 
@@ -431,6 +439,8 @@ class StrictlyAutoTags{
 	 */
 	protected function IsNoiseWord($word){
 		
+		//ShowDebugAutoTag("Is $word a noise word == " . $this->isnoisewordregex);
+
 		$count = preg_match($this->isnoisewordregex,$word,$match);
 
 		if(count($match)>0){
@@ -644,7 +654,8 @@ class StrictlyAutoTags{
 
 		
 		// ensure all html entities have been decoded
-		$article	= html_entity_decode(strip_tags($object->post_content));
+		$html		= $object->post_content;
+		$article	= html_entity_decode(strip_tags($html));
 		$excerpt	= html_entity_decode($object->post_excerpt);
 		$title		= html_entity_decode($object->post_title);
 
@@ -698,6 +709,16 @@ class StrictlyAutoTags{
 		$content			= $this->FormatContent($content);
 		$discovercontent	= $this->FormatContent($discovercontent);
 
+		// remove noise words from our auto discover content
+		// they pose a problem for new tags and not tags that have already been saved as they might legitamitley exist
+		// therefore we just want to prevent new tags containing noise words getting added
+
+		//ShowDebugAutoTag("Remove Noise words from == $discovercontent");
+
+		$discovercontent	= $this->RemoveNoiseWords($discovercontent);
+
+		//ShowDebugAutoTag("our discover content is now == $discovercontent");
+
 		// now if we are looking for new tags and we actually have some valid content to check
 		if($this->autodiscover && !empty($discovercontent)){
 			
@@ -712,7 +733,10 @@ class StrictlyAutoTags{
 			$this->MatchNames($discovercontent,$searchtags);
 		}
 		
-		
+		//ShowDebugAutoTag("After auto discover our tags are");
+
+		//ShowDebugAutoTag($searchtags);
+
 		// get existing tags from the DB as we can use these as well as any new ones we just discovered
 		global $wpdb;
 
@@ -766,6 +790,62 @@ class StrictlyAutoTags{
 			// as we want to ensure tags in the title are always tagged we tweak the hitcount by adding 1000
 			// in future expand this so we can add other content to search e.g anchors, headers each with their own ranking
 			$this->SearchContent($title,$terms,$tagstack,1000);
+
+		}
+
+		// do we rank terms in html tags such as headers or links higher?
+		if($this->rankhtml){
+
+			// get other important content
+			@preg_match_all("@<(h[1-6])>([\S\s]+?)<\/?\\1>@i",$html,$matches,PREG_SET_ORDER);
+			
+			
+			if($matches){
+			
+				foreach($matches as $match){
+					
+					ShowDebugAutoTag("HEADER MATCH == " . $match[2]);
+
+					if($match[1] == "h1"){
+						$score = 500;
+					}elseif($match[1] == "h2"){
+						$score = 400;
+					}elseif($match[1] == "h3"){
+						$score = 350;
+					}elseif($match[1] == "h4"){
+						$score = 300;
+					}elseif($match[1] == "h5"){
+						$score = 275;
+					}elseif($match[1] == "h6"){
+						$score = 250;
+					}
+
+					$important_content = html_entity_decode(strip_tags($match[2]));
+
+					$this->SearchContent($important_content,$terms,$tagstack,$score);
+
+				}
+
+			}
+
+			ShowDebugAutoTag("get other important tags");
+
+			// get other important content
+			preg_match_all("@<(b|em|strong|a)>([\S\s]+?)<\/?\\1>@i",$html,$matches,PREG_SET_ORDER);			
+			
+
+			if($matches){
+			
+				foreach($matches as $match){
+					
+					ShowDebugAutoTag("HEADER MATCH == " . $match[2]);
+
+					$important_content = html_entity_decode(strip_tags($match[2]));
+
+					$this->SearchContent($important_content,$terms,$tagstack,200);
+				}
+
+			}
 		}
 
 		
@@ -794,6 +874,10 @@ class StrictlyAutoTags{
 		// we don't need to worry about dupes e.g tags added when the rank title check ran and then also added later
 		// as Wordpress ensures duplicate taxonomies are not added to the DB
 	
+		//ShowDebugAutoTag("our full list of tags to add");
+		
+		//ShowDebugAutoTag($addtags);
+
 		// return array of post tags
 		return $addtags;
 
@@ -814,7 +898,7 @@ class StrictlyAutoTags{
 		}
 
 		// remove noise words now so that any tags that we discovered earlier will match
-		$content = $this->RemoveNoiseWords($content);
+		//$content = $this->RemoveNoiseWords($content);
 
 		// now loop through our content looking for the highest number of matching tags as we don't want to add a tag
 		// just because it appears once as that single word would possibly be irrelevant to the posts context.
@@ -826,7 +910,16 @@ class StrictlyAutoTags{
 				// for an accurate search use preg_match_all with word boundaries
 				// as substr_count doesn't always return the correct number from tests I did
 				
-				$regex = "/\b" . preg_quote( $term , "/") . "\b/";
+				// for exact matches we want to ensure that New York City Fire Department only matches that and not New York City
+				if($this->nestedtags == AUTOTAG_LONG){
+
+					$regex = "@(^|[.,;:]\s*|\s+[a-z1-9]+\s+)" . preg_quote( $term ) . "([.,;:]|\s+[a-z1-9]+|$)@";
+
+				}else{
+					$regex = "@\b" . preg_quote( $term ) . "\b@";
+				}
+
+				
 
 				$i = @preg_match_all($regex,$content,$matches);
 
@@ -839,11 +932,33 @@ class StrictlyAutoTags{
 					}
 
 					// do we add all tags whether or not they appear nested inside other matches
-					if($this->nestedtags == AUTOTAG_BOTH){
+					// do we add all tags whether or not they appear nested inside other matches
+					if($this->nestedtags == AUTOTAG_BOTH || $this->nestedtags == AUTOTAG_LONG){
 	
-						// add term and hit count to our array
-						$tagstack[] = array("term"=>$term,"count"=>$i);
-					
+						// if we already have this term in our stack then update the counter
+						if(isset($tagstack[$term])){
+						
+							$oldcount= $tagstack[$term]['count'];
+							$newcount= $oldcount+$i;
+							
+							// ensure noise words are never added
+							if(!$this->IsNoiseWord($term)){
+
+								ShowDebugAutoTag("Add term = $term count = $newcount");
+
+								$tagstack[$term] = array("term"=>$term,"count"=>$newcount);
+							}
+						}else{
+
+							// ensure noise words are never added
+							if(!$this->IsNoiseWord($term)){
+
+								ShowDebugAutoTag("Add term = $term count = $newcount");
+
+								// add term and hit count to our array
+								$tagstack[$term] = array("term"=>$term,"count"=>$i);
+							}
+						}
 					// must be AUTOTAG_SHORT
 					}else{
 
@@ -875,9 +990,12 @@ class StrictlyAutoTags{
 						}
 					
 						// do we add our new term
-						if(!$ignore){							
-							// add term and hit count to our array
-							$tagstack[] = array("term"=>$term,"count"=>$i);
+						if(!$ignore){		
+							// ensure noise words are never added
+							if(!$this->IsNoiseWord($term)){
+								// add term and hit count to our array
+								$tagstack[] = array("term"=>$term,"count"=>$i);
+							}
 						}
 					}
 				}
@@ -922,12 +1040,12 @@ class StrictlyAutoTags{
 		if ( !is_array($options) )
 		{
 			// This array sets the default options for the plugin when it is first activated.
-			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_BOTH);
+			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true);
 		}else{
 
 			// check defaults in case of new functionality added to plugin after installation
 			if(IsNothing($options['nestedtags'])){
-				$options['nestedtags'] = AUTOTAG_BOTH;
+				$options['nestedtags'] = AUTOTAGLONG;
 			}
 
 			if(IsNothing($options['noisewords'])){
@@ -937,6 +1055,12 @@ class StrictlyAutoTags{
 			if(IsNothing($options['ignorepercentage'])){
 				$options['ignorepercentage'] = 50;
 			}
+
+			if(IsNothing($options['rankhtml'])){
+				$options['rankhtml'] = true;
+			}
+
+			
 		}
 
 		// set internal members		
@@ -977,6 +1101,8 @@ class StrictlyAutoTags{
 		$this->noisewords		= $options['noisewords'];
 
 		$this->nestedtags		= $options['nestedtags'];
+
+		$this->rankhtml			= $options['rankhtml'];
 
 	}
 
@@ -1079,6 +1205,7 @@ class StrictlyAutoTags{
 			$options['autodiscover']= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
 			$options['ranktitle']	= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
 			$options['nestedtags']	= strip_tags(stripslashes($_POST['strictlyautotags-nestedtags']));
+			$options['rankhtml']	= strip_tags(stripslashes($_POST['strictlyautotags-rankhtml']));				
 
 			$ignorepercentage		= trim(strip_tags(stripslashes($_POST['strictlyautotags-ignorepercentage'])));			
 			$noisewords				= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords'])));			
@@ -1214,7 +1341,7 @@ class StrictlyAutoTags{
 				<li>'.__('Suitable words such as Acronyms, Names, Countries and other important keywords will then be identified within the post.', 'strictlyautotags').'</li>
 				<li>'.__('Existing tags will also be used to find relevant tags within the post.', 'strictlyautotags').'</li>
 				<li>'.__('Set the maximum number of tags to append to a post to a suitable amount. Setting the number too high could mean that tags that only appear once might be added.', 'strictlyautotags').'</li>
-				<li>'.__('Treat tags found in the post title as especially important by enabling the Rank Title option.', 'strictlyautotags').'</li>
+				<li>'.__('Treat tags found in the post title, H1 or strong tags as especially important by enabling the Rank Title and Rank HTML options.', 'strictlyautotags').'</li>
 				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
 				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li>
 				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li>
@@ -1270,8 +1397,15 @@ class StrictlyAutoTags{
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-ranktitle">'.__('Rank Title','strictlyautotags').'</label>
 				<input type="checkbox" name="strictlyautotags-ranktitle" id="strictlyautotags-ranktitle" value="true" ' . (($options['ranktitle']) ? 'checked="checked"' : '') . '/>				
-				<span class="notes">'.__('Rank tags found in post titles over those in content.', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Rank tags found within the post title over those found within the article content.', 'strictlyautotags').'</span>
 				</div>';
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-rankhtml">'.__('Rank HTML','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-rankhtml" id="strictlyautotags-rankhtml" value="true" ' . (($options['rankhtml']) ? 'checked="checked"' : '') . '/>				
+				<span class="notes">'.__('Rank tags found in H1,H2,H3,H4,H5,H6,STRONG,EM,A and B tags more importantly than those found in other content. The score given to each match is weighted so that a match found within an H1 tag is ranked higher than a match within an H6 or strong tag.', 'strictlyautotags').'</span>
+				</div>';
+
 
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-maxtags">'.__('Max Tags','strictlyautotags').'</label>
@@ -1286,9 +1420,10 @@ class StrictlyAutoTags{
 				</div>';
 
 		echo	'<div class="tagopt">
+				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagslong" value="' . AUTOTAG_LONG . '" ' . (($options['nestedtags'] ==AUTOTAG_LONG) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagslong">'.__('Tag Longest Version','strictlyautotags').'</label>
 				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagsboth" value="' . AUTOTAG_BOTH . '" ' . ((IsNothing($options['nestedtags']) || $options['nestedtags']==AUTOTAG_BOTH  ) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagsboth">'.__('Tag All Versions','strictlyautotags').'</label>
-				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagsshort" value="' . AUTOTAG_SHORT . '" ' . (($options['nestedtags'] ) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagsshort">'.__('Tag Shortest Version','strictlyautotags').'</label>				
-				<span class="notes">'.__('This option determines how nested tags are handled e.g <strong><em>New York, New York City, New York City Fire Department</em></strong> all contain the words <strong><em>New York</em></strong>. Setting this option to <strong>Tag All</strong> will mean all 3 get tagged. Setting it to <strong>Tag shortest</strong> will mean the shortest match e.g <strong><em>New York</em></strong> gets tagged.', 'strictlyautotags').'</span>
+				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagsshort" value="' . AUTOTAG_SHORT . '" ' . (($options['nestedtags'] == AUTOTAG_SHORT) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagsshort">'.__('Tag Shortest Version','strictlyautotags').'</label>				
+				<span class="notes">'.__('This option determines how nested tags are handled e.g <strong><em>New York, New York City, New York City Fire Department</em></strong> all contain the words <strong><em>New York</em></strong>. Setting this option to <strong>Tag All</strong> will mean all 3 get tagged. Setting it to <strong>Tag shortest</strong> will mean the shortest match e.g <strong><em>New York</em></strong> gets tagged and setting it to <strong>Tag Longest</strong> means that only exact matches get tagged.', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
@@ -1324,6 +1459,9 @@ class StrictlyAutoTags{
 						<li><a href="http://www.strictly-software.com/plugins/strictly-google-sitemap">'.__('Strictly Google Sitemap','strictlyautotags').'</a>
 							<p>'.__('Strictly Google Sitemap is a feature rich Wordpress plugin built for sites requiring high performance. Not only does it use a tiny number of database queries compared to other plugins it uses less memory and was designed specifically for under performing or low spec systems. As well as offering all the features of other sitemap plugins it brings all those missing features such as sitemap index files, XML validation, scheduled builds, configuration analysis and SEO reports.','strictlyautotags').'</p>
 						</li>
+						<li><a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">'.__('Strictly Tweetbot','strictlyautotags').'</a>
+							<p>'.__('Strictly Tweetbot is a Wordpress plugin that allows you to automatically post tweets to multiple accounts or multiple tweets to the same account whenever a post is added to your site. Features include: Content Analysis, Tweet formatting and the ability to use tags or categories as hash tags, OAuth PIN code authorisation and Tweet Reports.','strictlyautotags').'</p>
+						</li>
 						<li><a href="http://wordpress.org/extend/plugins/strictly-system-check/">'.__('Strictly System Check','strictlyautotags').'</a>
 							<p>'.__('Strictly System Check is a Wordpress plugin that allows you to automatically check your sites status at scheduled intervals to ensure it\'s running smoothly and it will run some system checks and send you an email if anything doesn\'t meet your requirements.','strictlyautotags').'</p>
 						</li>
@@ -1334,7 +1472,7 @@ class StrictlyAutoTags{
 							<p>'.__('If you like football then this site is for you. Get the latest football news, scores and league standings from around the web on one site. All content is crawled, scraped and reformated in real time so there is no need to leave the site when following news links. Check it out for yourself. ','strictlyautotags').'</p>
 						</li>
 						<li><a href="http://www.fromthestables.com">'.__('From The Stables','strictlyautotags').'</a>
-							<p>'.__('If you like horse racing or betting and want that extra edge when using Betfair then this site is for you. It\'s a members only site that gives you inside information straight from the UK\'s top racing trainers every day.','strictlyautotags').'</p>
+							<p>'.__('If you like horse racing or betting and want that extra edge when using Betfair then this site is for you. It\'s a members only site that gives you inside information straight from the UK\'s top racing trainers every day. We reguarly post up to 5 winners a day and our members have won thousands since we started in 2010.','StrictlySystemCheck').'</p>
 						</li>
 						<li><a href="http://www.darkpolitricks.com">'.__('Dark Politricks  ','strictlyautotags').'</a>
 							<p>'.__('Tired of being fed news from inside the box? Want to know the important news that the mainstream media doesn\'t want to report on? Then this site is for you. Alternative news, comment and analysis all in one place.','strictlyautotags').'</p>
