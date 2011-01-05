@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.2
+ * Version: 2.3
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,15 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.2";
+	protected $version = "2.3";
+
+	/**
+	* whether or not to remove all the saved options on uninstallation
+	*
+	* @access protected
+	* @var bool
+	*/
+	protected $uninstall;
 
    /**
 	* look for new tags by searching for Acronyms and names 
@@ -111,6 +119,9 @@ class StrictlyAutoTags{
 
 
 	public function __construct(){
+
+		// add any new options for users upgrading the plugin
+		StrictlyAutoTagControl::UpgradedOptions();		
 
 		// set up values for config options e.g autodiscover, ranktitle, maxtags
 		$this->GetOptions();
@@ -417,7 +428,7 @@ class StrictlyAutoTags{
 			$content = preg_replace("/(\w)([‘'’]s )/i","$1 ",$content);
 
 			// now remove anything not a letter or number
-			$content = preg_replace("/[^\w\d\s\.,]/"," ",$content);
+			$content = preg_replace("/[^\w\d\s\.,\?]/"," ",$content);
 			
 			// replace new lines with a full stop so we don't get cases of two unrelated strings being matched
 			$content = preg_replace("/\r\n/",". ",$content);
@@ -570,7 +581,7 @@ class StrictlyAutoTags{
 
 		// look for names of people or important strings of 2+ words that start with capitals e.g Federal Reserve Bank or Barack Hussein Obama
 		// this is not perfect and will not handle Irish type surnames O'Hara etc
-		@preg_match_all("/((\b[A-Z][^A-Z\s\.,;:]+)(\s+[A-Z][^A-Z\s\.,;:]+)+\b)/u",$content,$matches,PREG_SET_ORDER);
+		@preg_match_all("/((\b[A-Z][^A-Z\s\.,;:\?]+)(\s+[A-Z][^A-Z\s\.,;:\?]+)+\b)/u",$content,$matches,PREG_SET_ORDER);
 
 		// found some results
 		if($matches){
@@ -878,6 +889,15 @@ class StrictlyAutoTags{
 		
 		//ShowDebugAutoTag($addtags);
 
+		// update counter with the number of tags our plugin has added
+		$newtags = count($addtags);
+
+		//ShowDebugAutoTag("we are adding $newtags to the system");
+
+		// add to existing tag count
+		update_option('strictlyautotagcount',get_option('strictlyautotagcount') + $newtags);
+
+
 		// return array of post tags
 		return $addtags;
 
@@ -913,7 +933,7 @@ class StrictlyAutoTags{
 				// for exact matches we want to ensure that New York City Fire Department only matches that and not New York City
 				if($this->nestedtags == AUTOTAG_LONG){
 
-					$regex = "@(^|[.,;:]\s*|\s+[a-z1-9]+\s+)" . preg_quote( $term ) . "([.,;:]|\s+[a-z1-9]+|$)@";
+					$regex = "@(^|[.,;:?]\s*|\s+[a-z1-9]+\s+)" . preg_quote( $term ) . "([.,;:?]|\s+[a-z1-9]+|$)@";
 
 				}else{
 					$regex = "@\b" . preg_quote( $term ) . "\b@";
@@ -1032,6 +1052,8 @@ class StrictlyAutoTags{
 	 */
 	protected function GetOptions(){
 
+		$this->uninstall = get_option('strictlyautotag_uninstall');
+
 		// get saved options from wordpress DB
 		$options = get_option('strictlyautotags');
 
@@ -1076,6 +1098,8 @@ class StrictlyAutoTags{
 	 * @param object $object
 	 */
 	protected function SaveOptions($options){
+
+		update_option('strictlyautotag_uninstall', $this->uninstall);
 
 		update_option('strictlyautotags', $options);
 
@@ -1201,6 +1225,7 @@ class StrictlyAutoTags{
 			// check nonce
 			check_admin_referer("tagoptions","strictlytagoptionsnonce");
 
+			$this->uninstall		= (bool) strip_tags(stripslashes($_POST['strictlyautotags-uninstall']));
 
 			$options['autodiscover']= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
 			$options['ranktitle']	= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
@@ -1313,10 +1338,13 @@ class StrictlyAutoTags{
 				}
 				div label:first-child{					
 					display:	inline-block;
-					width:		250px;
+					width:		275px;
 				}
 				#lblnoisewords{
 					vertical-align:top;
+				}
+				#supportstrictly{
+					margin-bottom: 15px;
 				}
 				</style>';
 
@@ -1336,7 +1364,64 @@ class StrictlyAutoTags{
 			echo '<p class="error">' . $errmsg . '</p>';
 		}
 
-		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p><p>'.__('Please remember that this plugin has been developed for the <strong>English language</strong> and will only work with standard English characters e.g A-Z. If you have any problems with the plugin please check that it is not due to UTF-8 characters within the articles you are trying to auto tag.', 'strictlyautotags').'</p>
+		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p>';
+
+		$installdate = get_option('strictlyautotag_install_date');
+		$installtype = get_option('strictlyautotag_install_type');
+		$now		 = date('Y-m-d\TH:i:s+00:00',time());		
+		$diff		 = (int)((strtotime($now) - strtotime($installdate)) / 60);
+	
+		$tagged = get_option('strictlyautotagcount');
+
+		ShowDebugAutoTag("we have tagged $tagged tags so far in the $diff minutes since our $installtype on $installdate");
+
+		
+		// for all tests we ensure at least 5 mins have passed to prevent hammering
+		if(($diff > 10080 && $tagged > 100) || get_option('strictlyautotagcount') > 250){
+		//if(1==1){
+			
+
+			if($installtype == "upgrade"){
+				echo '<p>'. sprintf(__('Strictly AutoTags has automatically generated <strong>%s tags</strong> since upgrading on %s.', 'strictlyautotags'),number_format($tagged),$installdate).'</p>';
+			}else{
+				echo '<p>'. sprintf(__('Strictly AutoTags has automatically generated <strong>%s tags</strong> since installation on %s.', 'strictlyautotags'),number_format($tagged),$installdate).'</p>';
+			}
+
+			$rnd = (rand()%7);
+
+			if($rnd == 1 || $rnd == 3){
+
+				echo  __('<p><strong>How much is your time worth?</strong></p><p>Time is money as the famous saying goes and this plugin must be worth at least a small percentage of the time it has saved you. Why not show your appreciation by making <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652" title="Make a donation">a small donation?</a></p>','strictlyautotags') ;
+
+			}else if(($rnd == 0 || $rnd == 2) && $tagged > 1000){
+
+				$n = floor($tagged / 1000);
+
+				echo sprintf(__('<p><strong>This plugin has saved over %d thousand tags for your site!</strong></p><p>This must be worth at least a small donation to show your appreciation. Remember all donations help me to continue to offer plugins like Strictly AutoTags, <a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">Strictly Tweetbot</a>, <a href="http://wordpress.org/extend/plugins/strictly-google-sitemap/">Strictly Google Sitemap</a> and <a href="http://wordpress.org/extend/plugins/strictly-system-check/">Strictly System Check</a> for free! You can show your support for my development by making <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652" title="Make a donation">a donation.</a> Any amount would be appreciated even if its just pennies or cents!</p>','strictlyautotags'),$n);
+			}else{
+			
+				
+				echo '<p>' . __('<strong>Support Strictly Software Wordpress Plugin Development by:</strong>','strictlyautotags') . '</p>
+					 <ul id="supportstrictly">
+						<li><a href="http://www.strictly-software.com/plugins/strictly-auto-tags">Linking to the plugin from your own site or blog so that other people can find out about it.</a></li>
+						<li><a href="http://wordpress.org/extend/plugins/strictly-autotags/">Give the plugin a good rating on Wordpress.org.</a></li>	
+						<li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652">Make a donation on PayPal.</a></li>
+					 </ul>';
+			}			
+		}			
+		else
+		{
+		
+			
+			echo '<p>' . __('<strong>You can help Strictly Software Wordpress Plugin Development by:</strong>','strictlyautotags') . '</p>
+				 <ul id="supportstrictly">
+					<li><a href="http://www.strictly-software.com/plugins/strictly-auto-tags">Linking to the plugin from your own site or blog so that other people can find out about it.</a></li>
+					<li><a href="http://wordpress.org/extend/plugins/strictly-autotags/">Give the plugin a good rating on Wordpress.org.</a></li>	
+					<li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652">Make a donation on PayPal.</a></li>
+				 </ul>';
+		}	
+		
+		echo '<p>'.__('Please remember that this plugin has been developed for the <strong>English language</strong> and will only work with standard English characters e.g A-Z. If you have any problems with the plugin please check that it is not due to UTF-8 characters within the articles you are trying to auto tag.', 'strictlyautotags').'</p>
 				<ul><li>'.__('Enable Auto Discovery to find new tags.', 'strictlyautotags').'</li>
 				<li>'.__('Suitable words such as Acronyms, Names, Countries and other important keywords will then be identified within the post.', 'strictlyautotags').'</li>
 				<li>'.__('Existing tags will also be used to find relevant tags within the post.', 'strictlyautotags').'</li>
@@ -1387,6 +1472,11 @@ class StrictlyAutoTags{
 				<h3 class="hndle">'.__('AutoTag Options', 'strictlyautotags').'</h3>					
 				<div class="inside">
 				'. wp_nonce_field("tagoptions","strictlytagoptionsnonce",false,false) ;
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-uninstall">'.__('Uninstall Plugin when deactivated', 'strictlyautotags').'</label><input type="checkbox" name="strictlyautotags-uninstall" id="strictlyautotags-uninstall" value="true" ' . (($this->uninstall) ? 'checked="checked"' : '') . '/>
+				<span class="notes">'.__('Remove all plugin related data and configuration options when the plugin is de-activated.', 'strictlyautotags').'</span>
+				</div>';
 	
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-autodiscover">'.__('Auto Discovery','strictlyautotags').'</label>
@@ -1483,6 +1573,73 @@ class StrictlyAutoTags{
 
 	}
 }
+
+
+class StrictlyAutoTagControl{
+
+	/**
+	 * Called when plugin is deactivated and removes all the settings related to the plugin
+	 *
+	 */
+	public static function Deactivate(){
+
+		if(get_option('strictlyautotag_uninstall')){
+
+			delete_option("strictlyautotags");
+			delete_option("strictlyautotagcount");
+			delete_option("strictlyautotag_uninstall");
+			delete_option("strictlyautotag_install_type");
+			delete_option("strictlyautotag_install_date");
+
+		}
+
+	}
+
+	/**
+	 * Called when plugin is deactivated and removes all the settings related to the plugin
+	 *
+	 */
+	public static function Activate(){
+
+		// if we havent got this value set then its a new install
+		if(!get_option('strictlyautotag_install_type')){
+			update_option('strictlyautotag_install_type', 'install');		
+		}		
+
+		StrictlyAutoTagControl::UpgradedOptions();		
+
+	}
+
+	/**
+	 * Add and set any new options for upgraded plugins
+	 *
+	 */
+	public static function UpgradedOptions(){
+
+		// added in version 2.3
+
+		// if we havent got this set then its from an existing plugin already activated so its not a new install its an upgrade
+		if(!get_option('strictlyautotag_install_type')){
+			update_option('strictlyautotag_install_type', 'upgrade');		
+		}
+
+		// log the install date if we haven't already got one
+		if(!get_option('strictlyautotag_install_date')){
+			update_option('strictlyautotag_install_date', current_time('mysql'));
+		}
+
+		// create and initialise counter
+		if(!get_option('strictlyautotagcount')){
+			update_option('strictlyautotagcount',0);
+		}
+	}
+}
+
+// register my activate hook to setup the plugin
+register_activation_hook(__FILE__, 'StrictlyAutoTagControl::Activate');
+
+// register my deactivate hook to ensure when the plugin is deactivated everything is cleaned up
+register_deactivation_hook(__FILE__, 'StrictlyAutoTagControl::Deactivate');
 
 // create auto tag object
 $strictlyautotags = new StrictlyAutoTags();
