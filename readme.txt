@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.0.1
-Stable tag: 2.3
+Stable tag: 2.4
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -150,3 +150,9 @@ that are currently saved as post tags. This should help the problem where people
 * Added support strictly links to help users support the plugin more easily
 * Added date of installation / upgrade
 * Added register_activation_hook and register_deactivation_hook and the StrictlyAutoTagControl static class
+
+= 2.4 =
+* Added new "Max Tag Words" option which specifies the maximum number of words a tag can have to help prevent long capitalised sentences getting matched
+* Added new "Bold Tagged Words" option to wrap tagged words in strong tags to aid SEO 
+* Modified code in the SearchContent method to handle the new Max Tag Words setting
+* Added a few more default locations to the the MatchCountries function including Palestine, Tel Aviv and Belfast

@@ -14,11 +14,42 @@ if(!defined('AUTOTAG_LONG')){
 	define('AUTOTAG_LONG',2);
 }
 
+if(!function_exists('me')){
+
+	// turn debug on for one IP only
+	function me(){	
+		
+		$ip = "";           
+		if (getenv("HTTP_CLIENT_IP")){ 
+			$ip = getenv("HTTP_CLIENT_IP"); 
+		}elseif(getenv("HTTP_X_FORWARDED_FOR")){
+			$ip = getenv("HTTP_X_FORWARDED_FOR"); 			
+		}elseif(getenv("REMOTE_ADDR")){
+			$ip = getenv("REMOTE_ADDR");
+		}else {
+			$ip = "NA";
+		}
+		
+		// put your IP here
+		if($ip == "111.11.11.1"){
+			return true;
+		}else{
+			return false;
+		}
+
+	}
+}
+
+
 if(!function_exists('ShowDebugAutoTag')){
 
 	// if the DEBUG constant hasn't been set then create it and turn it off
 	if(!defined('DEBUGAUTOTAG')){
-		define('DEBUGAUTOTAG',false);
+		if(me()){
+			define('DEBUGAUTOTAG',false);
+		}else{
+			define('DEBUGAUTOTAG',false);
+		}
 	}
 
 	/**
@@ -39,6 +70,7 @@ if(!function_exists('ShowDebugAutoTag')){
 		}
 	}
 }
+
 
 
 if(!function_exists('IsNothing')){

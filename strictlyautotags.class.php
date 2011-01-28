@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.3
+ * Version: 2.4
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.3";
+	protected $version = "2.4";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -117,6 +117,22 @@ class StrictlyAutoTags{
 	*/
 	protected $removenoisewordsregex;
 
+	/**
+	* Max no of words to contain in each tag
+	*
+	* @access protected
+	* @var int
+	*/
+	protected $maxtagwords;
+
+
+	/**
+	* Whether or not to bold the tagged words
+	*
+	* @access protected
+	* @var bool
+	*/
+	protected $boldtaggedwords;
 
 	public function __construct(){
 
@@ -145,8 +161,10 @@ class StrictlyAutoTags{
 		add_action('publish_post'			, array(&$this, 'SaveAutoTags'));
 		add_action('post_syndicated_item'	, array(&$this, 'SaveAutoTags'));
 
+
 	}
 
+	
 	/**
 	 * Check post content for auto tags
 	 *
@@ -155,6 +173,10 @@ class StrictlyAutoTags{
 	 * @return boolean
 	 */
 	public function SaveAutoTags( $post_id = null, $post_data = null ) {
+
+		ShowDebugAutoTag("IN SaveAutoTags post id = " . $post_id);
+
+		global $wpdb;
 
 		$object = get_post($post_id);
 		if ( $object == false || $object == null ) {
@@ -166,9 +188,50 @@ class StrictlyAutoTags{
 		// add tags to post
 		// Append tags if tags to add
 		if ( count($posttags) > 0) {
+
+
+			ShowDebugAutoTag("do we bold auto tags? == " . $this->boldtaggedwords);
+			
+			ShowDebugAutoTag($posttags);
+
+			if($this->boldtaggedwords){
+
+				ShowDebugAutoTag("call bold tags");
+
+			
+				// help SEO by bolding our tags
+				$newcontent = $this->AutoBold($object->post_content,$posttags);
+				
+
+				ShowDebugAutoTag("our new content is === " . $newcontent);
+
+				$sql = $wpdb->prepare("UPDATE {$wpdb->posts} SET post_content = %s WHERE id = %d;", $newcontent,$object->ID);
+
+				ShowDebugAutoTag("SQL is $sql");
+
+				// resave content
+				// from what I read all params should be unsanitized so that wordpress can run a prepare itself
+				$r = $wpdb->update(
+				  'posts',
+				  array( 'post_content' => $newcontent ),
+				  array( 'id' => $object->ID )
+				);
+
+				ShowDebugAutoTag("should have been updated rows = " . $r);
+
+
+				$r = $wpdb->query($sql);
+				
+				ShowDebugAutoTag("should have been updated rows = " . $r);
+
+			
+
+			}
 			
 			// Add tags to posts
 			wp_set_object_terms( $object->ID, $posttags, 'post_tag', true );
+
+			ShowDebugAutoTag("after set object terms");
 			
 			// Clean cache
 			if ( 'page' == $object->post_type ) {
@@ -178,10 +241,65 @@ class StrictlyAutoTags{
 			}			
 		}
 
+		ShowDebugAutoTag("END OF AUTOTAG HOOK");
+
 		return true;
 	}
 
-	
+	/** Reformats the main article by highlighting the tagged words
+	*
+	* @param string $content;
+	* @returns string 
+	*/
+	protected function AutoBold($content,$tags){
+
+		ShowDebugAutoTag("IN AutoBold $content we have " . count($tags) . " to bold");
+
+		ShowDebugAutoTag($tags);
+
+		if(!empty($content) && is_array($tags) && count($tags)>0){
+
+			ShowDebugAutoTag("lets loop through our post tags");
+
+			//loop and bold unless they are already inside a bold tag
+			foreach($tags as $tag){
+
+
+				ShowDebugAutoTag("bold all matches of $tag");
+
+				// instead of doing negative lookaheads and entering a world of doom match and then clean	
+				// easier to do a positive match than a negative especially with nested matches
+
+				// wrap tags in strong and keep the formatting e.g dont upper case if the tag is lowercase as it might be inside
+				// an href or src which might screw it up
+				$content = preg_replace("@\b(" . preg_quote($tag) . ")\b@i","<strong>$1</strong>",$content);
+
+
+				// remove bold tags that have been put inside attributes e.g <a href="http://www.<strong>MSNBC</strong>.com">				
+				$content = preg_replace_callback("@(\w+)(\s*=\s*['\"][^'\"]*?)(<strong>)([\s\S]+?)(</strong>)([^'\"]*['\"])@",
+							create_function(
+							'$matches',					
+							'$res = preg_replace("@<\/?strong>@","",$matches[0] );					
+							return $res;')
+						,$content);
+				
+				
+				// remove any tags that are now in strong that are also inside other "bold" tags
+				$content = preg_replace("@(<(h[1-6]|strong|b|em|i|a)[^>]*>[^<]*?)(<strong>" .  preg_quote($tag) . "<\/strong>)(.*?<\/?\\2>)@i","$1{$tag}$4",$content);
+
+			
+
+				ShowDebugAutoTag("look at current bolded content == $content");
+
+			}
+
+		}
+
+		ShowDebugAutoTag("return $content");
+
+		return $content;
+
+	}
 				
 	/**
 	 * Removes any noise words from the system if they are already used as post tags
@@ -554,7 +672,7 @@ class StrictlyAutoTags{
 	 * @param array $searchtags
 	 */
 	protected function MatchCountries($content,&$searchtags){
-		preg_match_all("/\s(Afghanistan|Albania|Algeria|American\sSamoa|Andorra|Angola|Anguilla|Antarctica|Antigua\sand\sBarbuda|Arctic\sOcean|Argentina|Armenia|Aruba|Ashmore\sand\sCartier\sIslands|Australia|Austria|Azerbaijan|Bahrain|Baker\sIsland|Bangladesh|Barbados|Bassas\sda\sIndia|Belarus|Belgium|Belize|Benin|Bermuda|Bhutan|Bolivia|Bosnia\sand\sHerzegovina|Botswana|Bouvet\sIsland|Brazil|British\sVirgin\sIslands|Brunei|Bulgaria|Burkina\sFaso|Burma|Burundi|Cambodia|Cameroon|Canada|Cape\sVerde|Cayman\sIslands|Central\sAfrican\sRepublic|Chad|Chile|China|Christmas\sIsland|Clipperton\sIsland|Cocos\s(Keeling)\sIslands|Colombia|Comoros|Congo|Cook\sIslands|Coral\sSea\sIslands|Costa\sRica|Croatia|Cuba|Cyprus|Czech\sRepublic|Denmark|Djibouti|Dominica|Dominican\sRepublic|Ecuador|Eire|Egypt|El\sSalvador|Equatorial\sGuinea|England|Eritrea|Estonia|Ethiopia|Europa\sIsland|Falkland\sIslands\s|Islas\sMalvinas|Faroe\sIslands|Fiji|Finland|France|French\sGuiana|French\sPolynesia|French\sSouthern\sand\sAntarctic\sLands|Gabon|Gaza\sStrip|Georgia|Germany|Ghana|Gibraltar|Glorioso\sIslands|Greece|Greenland|Grenada|Guadeloupe|Guam|Guatemala|Guernsey|Guinea|Guinea-Bissau|Guyana|Haiti|Heard\sIsland\sand\sMcDonald\sIslands|Holy\sSee\s(Vatican\sCity)|Honduras|Hong\sKong|Howland\sIsland|Hungary|Iceland|India|Indonesia|Iran|Iraq|Ireland|Israel|Italy|Ivory\sCoast|Jamaica|Jan\sMayen|Japan|Jarvis\sIsland|Jersey|Johnston\sAtoll|Jordan|Juan\sde\sNova\sIsland|Kazakstan|Kenya|Kingman\sReef|Kiribati|Korea|Korea|Kuwait|Kyrgyzstan|Laos|Latvia|Lebanon|Lesotho|Liberia|Libya|Liechtenstein|Lithuania|Luxembourg|Macau|Macedonia\sThe\sFormer\sYugoslav\sRepublic\sof|Madagascar|Malawi|Malaysia|Maldives|Mali|Malta|Man\sIsle\sof|Marshall\sIslands|Martinique|Mauritania|Mauritius|Mayotte|Mexico|Micronesia\sFederated\sStates\sof|Midway\sIslands|Moldova|Monaco|Mongolia|Montenegro|Montserrat|Morocco|Mozambique|Namibia|Nauru|Navassa\sIsland|Nepal|Netherlands|Netherlands\sAntilles|New\sCaledonia|New\sZealand|Nicaragua|Nigeria|Niue|Norfolk\sIsland|Northern\sIreland|Northern\sMariana\sIslands|Norway|Oman|Pakistan|Palau|Palmyra\sAtoll|Panama|Papua\sNew\sGuinea|Paracel\sIslands|Paraguay|Peru|Philippines|Pitcairn\sIslands|Poland|Portugal|Puerto\sRico|Qatar|Reunion|Romania|Russia|Rwanda|Saint\sHelena|Saint\sKitts\sand\sNevis|Saint\sLucia|Saint\sPierre\sand\sMiquelon|Saint\sVincent\sand\sthe\sGrenadines|San\sMarino|Sao\sTome\sand\sPrincipe|Saudi\sArabia|Scotland|Senegal|Serbia|Seychelles|Sierra\sLeone|Singapore|Slovakia|Slovenia|Solomon\sIslands|Somalia|South\sAfrica|South\sGeorgia\sand\sthe\sSouth\sSandwich\sIslands|Spain|Spratly\sIslands|Sri\sLanka|Sudan|Suriname|Svalbard|Swaziland|Sweden|Switzerland|Syria|Taiwan|Tajikistan|Tanzania|Thailand|The\sBahamas|The\sGambia|Togo|Tokelau|Tonga|Trinidad\sand\sTobago|Tromelin\sIsland|Tunisia|Turkey|Turkmenistan|Turks\sand\sCaicos\sIslands|Tuvalu|Uganda|Ukraine|United\sArab\sEmirates|UAE|United\sKingdom|UK|United\sStates\sof\sAmerica|USA|Uruguay|Uzbekistan|Vanuatu|Venezuela|Vietnam|Virgin\sIslands|Wake\sIsland|Wales|Wallis\sand\sFutuna|West\sBank|Western\sSahara|Western\sSamoa|Yemen|Zaire|Zambia|Zimbabwe|Europe|Western\sEurope|North\sAmerica|South\sAmerica|Asia|South\sEast\sAsia|Central\sAsia|The\sCaucasus|Middle\sEast|Far\sEast|Scandinavia|Africa|North\sAfrica|North\sPole|South\sPole|Central\sAmerica|Caribbean|London|New\sYork|Paris|Moscow|Beijing|Tokyo|Washington\sDC|Los\sAngeles|Miami|Rome|Sydney|Mumbai|Baghdad|Kabul|Islamabad|Berlin)\s/i",$content,$matches, PREG_SET_ORDER);
+		preg_match_all("/\s(Afghanistan|Albania|Algeria|American\sSamoa|Andorra|Angola|Anguilla|Antarctica|Antigua\sand\sBarbuda|Arctic\sOcean|Argentina|Armenia|Aruba|Ashmore\sand\sCartier\sIslands|Australia|Austria|Azerbaijan|Bahrain|Baker\sIsland|Bangladesh|Barbados|Bassas\sda\sIndia|Belarus|Belgium|Belize|Benin|Bermuda|Bhutan|Bolivia|Bosnia\sand\sHerzegovina|Botswana|Bouvet\sIsland|Brazil|British\sVirgin\sIslands|Brunei|Bulgaria|Burkina\sFaso|Burma|Burundi|Cambodia|Cameroon|Canada|Cape\sVerde|Cayman\sIslands|Central\sAfrican\sRepublic|Chad|Chile|China|Christmas\sIsland|Clipperton\sIsland|Cocos\s(Keeling)\sIslands|Colombia|Comoros|Congo|Cook\sIslands|Coral\sSea\sIslands|Costa\sRica|Croatia|Cuba|Cyprus|Czech\sRepublic|Denmark|Djibouti|Dominica|Dominican\sRepublic|Ecuador|Eire|Egypt|El\sSalvador|Equatorial\sGuinea|England|Eritrea|Estonia|Ethiopia|Europa\sIsland|Falkland\sIslands\s|Islas\sMalvinas|Faroe\sIslands|Fiji|Finland|France|French\sGuiana|French\sPolynesia|French\sSouthern\sand\sAntarctic\sLands|Gabon|Gaza\sStrip|Georgia|Germany|Ghana|Gibraltar|Glorioso\sIslands|Greece|Greenland|Grenada|Guadeloupe|Guam|Guatemala|Guernsey|Guinea|Guinea-Bissau|Guyana|Haiti|Heard\sIsland\sand\sMcDonald\sIslands|Holy\sSee\s(Vatican\sCity)|Honduras|Hong\sKong|Howland\sIsland|Hungary|Iceland|India|Indonesia|Iran|Iraq|Ireland|Israel|Italy|Ivory\sCoast|Jamaica|Jan\sMayen|Japan|Jarvis\sIsland|Jersey|Johnston\sAtoll|Jordan|Juan\sde\sNova\sIsland|Kazakstan|Kenya|Kingman\sReef|Kiribati|Korea|Korea|Kuwait|Kyrgyzstan|Laos|Latvia|Lebanon|Lesotho|Liberia|Libya|Liechtenstein|Lithuania|Luxembourg|Macau|Macedonia\sThe\sFormer\sYugoslav\sRepublic\sof|Madagascar|Malawi|Malaysia|Maldives|Mali|Malta|Man\sIsle\sof|Marshall\sIslands|Martinique|Mauritania|Mauritius|Mayotte|Mexico|Micronesia\sFederated\sStates\sof|Midway\sIslands|Moldova|Monaco|Mongolia|Montenegro|Montserrat|Morocco|Mozambique|Namibia|Nauru|Navassa\sIsland|Nepal|Netherlands|Netherlands\sAntilles|New\sCaledonia|New\sZealand|Nicaragua|Nigeria|Niue|Norfolk\sIsland|Northern\sIreland|Northern\sMariana\sIslands|Norway|Oman|Pakistan|Palau|Palmyra\sAtoll|Panama|Papua\sNew\sGuinea|Paracel\sIslands|Paraguay|Peru|Philippines|Pitcairn\sIslands|Poland|Portugal|Puerto\sRico|Qatar|Reunion|Romania|Russia|Rwanda|Saint\sHelena|Saint\sKitts\sand\sNevis|Saint\sLucia|Saint\sPierre\sand\sMiquelon|Saint\sVincent\sand\sthe\sGrenadines|San\sMarino|Sao\sTome\sand\sPrincipe|Saudi\sArabia|Scotland|Senegal|Serbia|Seychelles|Sierra\sLeone|Singapore|Slovakia|Slovenia|Solomon\sIslands|Somalia|South\sAfrica|South\sGeorgia\sand\sthe\sSouth\sSandwich\sIslands|Spain|Spratly\sIslands|Sri\sLanka|Sudan|Suriname|Svalbard|Swaziland|Sweden|Switzerland|Syria|Taiwan|Tajikistan|Tanzania|Thailand|The\sBahamas|The\sGambia|Togo|Tokelau|Tonga|Trinidad\sand\sTobago|Tromelin\sIsland|Tunisia|Turkey|Turkmenistan|Turks\sand\sCaicos\sIslands|Tuvalu|Uganda|Ukraine|United\sArab\sEmirates|UAE|United\sKingdom|UK|United\sStates\sof\sAmerica|USA|Uruguay|Uzbekistan|Vanuatu|Venezuela|Vietnam|Virgin\sIslands|Wake\sIsland|Wales|Wallis\sand\sFutuna|West\sBank|Western\sSahara|Western\sSamoa|Yemen|Zaire|Zambia|Zimbabwe|Europe|Western\sEurope|North\sAmerica|South\sAmerica|Asia|South\sEast\sAsia|Central\sAsia|The\sCaucasus|Middle\sEast|Far\sEast|Scandinavia|Africa|North\sAfrica|North\sPole|South\sPole|Central\sAmerica|Caribbean|London|New\sYork|Paris|Moscow|Beijing|Tokyo|Washington\sDC|Los\sAngeles|Miami|Rome|Sydney|Mumbai|Baghdad|Kabul|Islamabad|Berlin|Palestine|Dublin|Belfast|Tel\sAviv)\s/i",$content,$matches, PREG_SET_ORDER);
 
 
 		if($matches){
@@ -579,6 +697,8 @@ class StrictlyAutoTags{
 	 */
 	protected function MatchNames($content,&$searchtags){
 
+		ShowDebugAutoTag("IN MatchNames");
+
 		// look for names of people or important strings of 2+ words that start with capitals e.g Federal Reserve Bank or Barack Hussein Obama
 		// this is not perfect and will not handle Irish type surnames O'Hara etc
 		@preg_match_all("/((\b[A-Z][^A-Z\s\.,;:\?]+)(\s+[A-Z][^A-Z\s\.,;:\?]+)+\b)/u",$content,$matches,PREG_SET_ORDER);
@@ -589,6 +709,8 @@ class StrictlyAutoTags{
 			foreach($matches as $match){
 				
 				$pat = $match[1];
+
+				ShowDebugAutoTag("found possible name tag to our stack " . $pat);
 
 				$searchtags[$pat] = trim($pat);
 			}
@@ -670,7 +792,8 @@ class StrictlyAutoTags{
 		$excerpt	= html_entity_decode($object->post_excerpt);
 		$title		= html_entity_decode($object->post_title);
 
-		
+		ShowDebugAutoTag("our title is " . $title);
+
 		// no need to trim as empty checks for space
 		if(empty($article) && empty($excerpt) && empty($title)){		
 			return $addtags;	
@@ -682,8 +805,12 @@ class StrictlyAutoTags{
 			
 			$discovercontent = "";
 
+			ShowDebugAutoTag("do we add the title to our discover content == " . $title);
+
 			// ensure title is not full of capitals
 			if($this->ValidContent($title)){
+
+				ShowDebugAutoTag("title is valid so add to discover content");
 
 				// add a full stop to ensure words at the end of the title don't accidentally match those in the content during auto discovery
 				$discovercontent .= " " . $title . ". ";				
@@ -704,6 +831,7 @@ class StrictlyAutoTags{
 			$discovercontent	= "";
 		}
 
+		ShowDebugAutoTag("do we rank the title = " . $this->ranktitle);
 
 		// if we are doing a special parse of the title we don't need to add it to our content as well
 		if($this->ranktitle){
@@ -724,14 +852,16 @@ class StrictlyAutoTags{
 		// they pose a problem for new tags and not tags that have already been saved as they might legitamitley exist
 		// therefore we just want to prevent new tags containing noise words getting added
 
-		//ShowDebugAutoTag("Remove Noise words from == $discovercontent");
+		ShowDebugAutoTag("Remove Noise words from == $discovercontent");
 
 		$discovercontent	= $this->RemoveNoiseWords($discovercontent);
 
-		//ShowDebugAutoTag("our discover content is now == $discovercontent");
+		ShowDebugAutoTag("our discover content is now == $discovercontent");
 
 		// now if we are looking for new tags and we actually have some valid content to check
 		if($this->autodiscover && !empty($discovercontent)){
+
+			ShowDebugAutoTag("look for acronyms and names");
 			
 			// look for Acronyms in content
 			// the searchtag array is passed by reference to prevent copies of arrays and merges later on
@@ -797,12 +927,21 @@ class StrictlyAutoTags{
 		// do we rank terms in the title higher?
 		if($this->ranktitle){
 
+			ShowDebugAutoTag("look inside our title for terms");
+
+			// make it easier to match word boundaries
+		//	$title = " " . $title . " ";
+
+			ShowDebugAutoTag("our title is '" . $title . "'");
+
 			// parse the title with our terms adding tags by reference into the tagstack
 			// as we want to ensure tags in the title are always tagged we tweak the hitcount by adding 1000
 			// in future expand this so we can add other content to search e.g anchors, headers each with their own ranking
 			$this->SearchContent($title,$terms,$tagstack,1000);
 
 		}
+
+		ShowDebugAutoTag("so we just searched our title now check html");
 
 		// do we rank terms in html tags such as headers or links higher?
 		if($this->rankhtml){
@@ -859,6 +998,7 @@ class StrictlyAutoTags{
 			}
 		}
 
+		ShowDebugAutoTag("now parse our main bit of content");
 		
 		// now parse the main piece of content
 		$this->SearchContent($content,$terms,$tagstack,0);
@@ -869,12 +1009,16 @@ class StrictlyAutoTags{
 		// take the top X items
 		if($maxtags != -1 && count($tagstack) > $maxtags){
 
+			ShowDebugAutoTag("take the top $maxtags from the " . count($tagstack) . " we have got for this article");
+
 			// sort our results in decending order using our hitcount
 			uasort($tagstack, array($this,'HitCount'));
 			
 			// return only the results we need
 			$tagstack = array_slice($tagstack, 0, $maxtags);
 		}
+
+		ShowDebugAutoTag($tagstack);
 
 		// add our results to the array we return which will be added to the post
 		foreach($tagstack as $item=>$tag){
@@ -939,7 +1083,10 @@ class StrictlyAutoTags{
 					$regex = "@\b" . preg_quote( $term ) . "\b@";
 				}
 
-				
+				$addtag		= false;
+				$addarray	= array();
+
+				//ShowDebugAutoTag("look for $regex");
 
 				$i = @preg_match_all($regex,$content,$matches);
 
@@ -966,7 +1113,8 @@ class StrictlyAutoTags{
 
 								ShowDebugAutoTag("Add term = $term count = $newcount");
 
-								$tagstack[$term] = array("term"=>$term,"count"=>$newcount);
+								$addarray	= array("term"=>$term,"count"=>$newcount);
+								$addtag		= true;									
 							}
 						}else{
 
@@ -976,7 +1124,9 @@ class StrictlyAutoTags{
 								ShowDebugAutoTag("Add term = $term count = $newcount");
 
 								// add term and hit count to our array
-								$tagstack[$term] = array("term"=>$term,"count"=>$i);
+								$addarray	= array("term"=>$term,"count"=>$i);
+								$addtag		= true;	
+
 							}
 						}
 					// must be AUTOTAG_SHORT
@@ -1013,11 +1163,37 @@ class StrictlyAutoTags{
 						if(!$ignore){		
 							// ensure noise words are never added
 							if(!$this->IsNoiseWord($term)){
+
+								ShowDebugAutoTag("Add term = $term count = $i");
+
 								// add term and hit count to our array
-								$tagstack[] = array("term"=>$term,"count"=>$i);
+								$addarray	= array("term"=>$term,"count"=>$i);
+								$addtag		= true;	
 							}
 						}
 					}
+
+					if($addtag){
+
+						if($this->maxtagwords > 0){
+
+							//ShowDebugAutoTag("make sure the tag = " .$addarray['term'] . " is less than " . $this->maxtagwords . " words long");
+
+							$wordcount = str_word_count($addarray['term']);
+
+							if($wordcount > $this->maxtagwords){
+
+								ShowDebugAutoTag("this tag has TOO MANY words in it!");
+								$addtag = false;
+							}
+						}
+						
+						if($addtag){
+							$tagstack[$term] = $addarray;
+						}							
+					}
+
+					unset($addarray);
 				}
 			}
 		}
@@ -1062,7 +1238,7 @@ class StrictlyAutoTags{
 		if ( !is_array($options) )
 		{
 			// This array sets the default options for the plugin when it is first activated.
-			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true);
+			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true, 'maxtagwords'=>3, 'boldtaggedwords' => false);
 		}else{
 
 			// check defaults in case of new functionality added to plugin after installation
@@ -1082,6 +1258,15 @@ class StrictlyAutoTags{
 				$options['rankhtml'] = true;
 			}
 
+			if(IsNothing($options['maxtagwords'])){
+				$options['maxtagwords'] = 0;
+			}
+
+			if(IsNothing($options['boldtaggedwords'])){
+				$options['boldtaggedwords'] = false;
+			}
+
+			
 			
 		}
 
@@ -1127,6 +1312,10 @@ class StrictlyAutoTags{
 		$this->nestedtags		= $options['nestedtags'];
 
 		$this->rankhtml			= $options['rankhtml'];
+
+		$this->maxtagwords		= $options['maxtagwords'];
+
+		$this->boldtaggedwords	= $options['boldtaggedwords'];
 
 	}
 
@@ -1230,8 +1419,10 @@ class StrictlyAutoTags{
 			$options['autodiscover']= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
 			$options['ranktitle']	= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
 			$options['nestedtags']	= strip_tags(stripslashes($_POST['strictlyautotags-nestedtags']));
-			$options['rankhtml']	= strip_tags(stripslashes($_POST['strictlyautotags-rankhtml']));				
-
+			$options['rankhtml']	= strip_tags(stripslashes($_POST['strictlyautotags-rankhtml']));
+			$options['boldtaggedwords']	= strip_tags(stripslashes($_POST['strictlyautotags-boldtaggedwords']));			
+			$options['maxtagwords']	= strip_tags(stripslashes($_POST['strictlyautotags-maxtagwords']));		
+			
 			$ignorepercentage		= trim(strip_tags(stripslashes($_POST['strictlyautotags-ignorepercentage'])));			
 			$noisewords				= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords'])));			
 
@@ -1268,16 +1459,27 @@ class StrictlyAutoTags{
 			// only set if its numeric
 			$maxtags = strip_tags(stripslashes($_POST['strictlyautotags-maxtags']));
 
-			if(is_numeric($maxtags) && $maxtags <= 20){
+			if(is_numeric($maxtags) && $maxtags > 0 && $maxtags <= 20){
 				$options['maxtags']		= $maxtags;
 			}else{
-				$errmsg .= __('The value you entered for Max Tags was invalid.<br />','strictlyautotags');
+				$errmsg .= __('The value you entered for Max Tags was invalid: (1 - 20)<br />','strictlyautotags');
+				$options['maxtags'] = 4;
 			}
+			$maxtagwords = strip_tags(stripslashes($_POST['strictlyautotags-maxtagwords']));
+
+			if(is_numeric($maxtagwords) && $maxtagwords >= 0 ){
+				$options['maxtagwords']		= $maxtagwords;
+			}else{
+				$errmsg .= __('The value you entered for Max Tag Words was invalid: (> 0)<br />','strictlyautotags');
+				$options['maxtagwords']		= 0;
+			}
+
 
 			if(is_numeric($ignorepercentage) && ($ignorepercentage >= 0 || $ignorepercentage <= 100)){
 				$options['ignorepercentage']		= $ignorepercentage;
 			}else{
-				$errmsg .= __('The value your entered for the Ignore Capitals Percentage was invalid.<br />','strictlyautotags');
+				$errmsg .= __('The value your entered for the Ignore Capitals Percentage was invalid: (0 - 100)<br />','strictlyautotags');
+				$options['ignorepercentage']	= 50;
 			}
 			
 			if(!empty($errmsg)){
@@ -1387,11 +1589,16 @@ class StrictlyAutoTags{
 				echo '<p>'. sprintf(__('Strictly AutoTags has automatically generated <strong>%s tags</strong> since installation on %s.', 'strictlyautotags'),number_format($tagged),$installdate).'</p>';
 			}
 
-			$rnd = (rand()%7);
+			$rnd = (rand()%10);
 
 			if($rnd == 1 || $rnd == 3){
 
-				echo  __('<p><strong>How much is your time worth?</strong></p><p>Time is money as the famous saying goes and this plugin must be worth at least a small percentage of the time it has saved you. Why not show your appreciation by making <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652" title="Make a donation">a small donation?</a></p>','strictlyautotags') ;
+				echo  __('<p><strong>How much is your time worth?</strong></p><p>Time is money as the famous saying goes and this plugin must be worth at least a small percentage of the time it has saved you. Why not show your appreciation for this plugin which just keeps getting better by making <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652" title="Make a donation">a small donation to help cover my development time?</a>. </p>','strictlyautotags') ;
+
+			}else if(($rnd == 4 || $rnd == 8)  && $tagged > 500){
+
+				echo  __('<p>Plugin developers like myself spend a large portion of their free time to make great code only to give it away for free to people like you. In no other industry does this happen. Can you imagine a builder offering to build an extension on your house for free in the hope that you &quot;might pay him&quot; or hire him later for another job? This is what Wordpress developers do when they give their plugins away for free. If you appreciate our work and want to help us continue to work in this industry
+				then please consider <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652" title="Make a donation">making a donation</a> to help cover my development time. <strong>Any amount no matter how small would be appreciated.</strong> Thanks for your support. . </p>','strictlyautotags') ;
 
 			}else if(($rnd == 0 || $rnd == 2) && $tagged > 1000){
 
@@ -1404,8 +1611,8 @@ class StrictlyAutoTags{
 				echo '<p>' . __('<strong>Support Strictly Software Wordpress Plugin Development by:</strong>','strictlyautotags') . '</p>
 					 <ul id="supportstrictly">
 						<li><a href="http://www.strictly-software.com/plugins/strictly-auto-tags">Linking to the plugin from your own site or blog so that other people can find out about it.</a></li>
-						<li><a href="http://wordpress.org/extend/plugins/strictly-autotags/">Give the plugin a good rating on Wordpress.org.</a></li>	
-						<li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652">Make a donation on PayPal.</a></li>
+						<li><a href="http://wordpress.org/extend/plugins/strictly-autotags/">Give the plugin a good rating on Wordpress.org or other websites that discuss Wordpress plugins.</a></li>	
+						<li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652">Pleaae make a donation on PayPal. Any amount no matter how small is appreciated!</a></li>
 					 </ul>';
 			}			
 		}			
@@ -1415,9 +1622,9 @@ class StrictlyAutoTags{
 			
 			echo '<p>' . __('<strong>You can help Strictly Software Wordpress Plugin Development by:</strong>','strictlyautotags') . '</p>
 				 <ul id="supportstrictly">
-					<li><a href="http://www.strictly-software.com/plugins/strictly-auto-tags">Linking to the plugin from your own site or blog so that other people can find out about it.</a></li>
-					<li><a href="http://wordpress.org/extend/plugins/strictly-autotags/">Give the plugin a good rating on Wordpress.org.</a></li>	
-					<li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652">Make a donation on PayPal.</a></li>
+					<li><a href="http://www.strictly-software.com/plugins/strictly-auto-tags">Linking to the plugin from your own site or blog so that other people can find out about it. If you think this plugin is great then please tell the world about it.</a></li>
+					<li><a href="http://wordpress.org/extend/plugins/strictly-autotags/">Give the plugin a good rating on Wordpress.org so that other users download and use it.</a></li>	
+					<li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652">Please make a donation on PayPal. I have spent considerable time developing this plugin for your free use and a donation would show your appreciation for my hard work and allow me to keep on updating this valuable tool with great new features.</a></li>
 				 </ul>';
 		}	
 		
@@ -1428,6 +1635,9 @@ class StrictlyAutoTags{
 				<li>'.__('Set the maximum number of tags to append to a post to a suitable amount. Setting the number too high could mean that tags that only appear once might be added.', 'strictlyautotags').'</li>
 				<li>'.__('Treat tags found in the post title, H1 or strong tags as especially important by enabling the Rank Title and Rank HTML options.', 'strictlyautotags').'</li>
 				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
+				<li>'.__('Aid Search Engine Optimisation by bolding your matched tags to emphasis to search engines the important terms within your articles.', 'strictlyautotags').'</li>
+				<li>'.__('Set the Max Tag Words setting to an appropriate value to prevent long capitalised sentences from matching during auto discovery.', 'strictlyautotags').'</li>	
+				<li>'.__('Enable the Bold Tagged Words option to wrap all tags with <strong>&lt;strong&gt;tags&lt;/strong&gt;</strong>.', 'strictlyautotags').'</li>	
 				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li>
 				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li>
 				<li>'.__('Quickly clean up your system by removing under used saved tags or noise words that have already been tagged.','strictlyautotags').'</li></ul>
@@ -1503,6 +1713,22 @@ class StrictlyAutoTags{
 				<span class="notes">'.__('Maximum no of tags to save (20 max).', 'strictlyautotags').'</span>
 				</div>';
 
+		
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-maxtagwords">'.__('Max Tag Words','strictlyautotags').'</label>
+				<input type="text" name="strictlyautotags-maxtagwords" id="strictlyautotags-maxtagwords" value="' . esc_attr($options['maxtagwords']) . '" />
+				<span class="notes">'.__('Set the maximum number of words a saved tag can have or set it to 0 to save tags of all sizes.', 'strictlyautotags').'</span>
+				</div>';
+
+
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-boldtaggedwords">'.__('Bold Tagged Words','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-boldtaggedwords" id="strictlyautotags-boldtaggedwords" value="true" ' . (($options['boldtaggedwords']) ? 'checked="checked"' : '') . '/>				
+				<span class="notes">'.__('Wrap matched tags found within the post article with &lt;strong&gt; tags to aid SEO and empahsis your tags to readers.', 'strictlyautotags').'</span>
+				</div>';
+
+
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-ignorepercentage">'.__('Ignore Capitals Percentage','strictlyautotags').'</label>
 				<input type="text" name="strictlyautotags-ignorepercentage" id="strictlyautotags-ignorepercentage" value="' . $options['ignorepercentage'] . '" />				
@@ -1510,7 +1736,7 @@ class StrictlyAutoTags{
 				</div>';
 
 		echo	'<div class="tagopt">
-				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagslong" value="' . AUTOTAG_LONG . '" ' . (($options['nestedtags'] ==AUTOTAG_LONG) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagslong">'.__('Tag Longest Version','strictlyautotags').'</label>
+				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagslong" value="' . AUTOTAG_LONG . '" ' . (($options['nestedtags'] == AUTOTAG_LONG) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagslong">'.__('Tag Longest Version','strictlyautotags').'</label>
 				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagsboth" value="' . AUTOTAG_BOTH . '" ' . ((IsNothing($options['nestedtags']) || $options['nestedtags']==AUTOTAG_BOTH  ) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagsboth">'.__('Tag All Versions','strictlyautotags').'</label>
 				<input type="radio" name="strictlyautotags-nestedtags" id="strictlyautotags-nestedtagsshort" value="' . AUTOTAG_SHORT . '" ' . (($options['nestedtags'] == AUTOTAG_SHORT) ? 'checked="checked"' : '') . '/><label for="strictlyautotags-nestedtagsshort">'.__('Tag Shortest Version','strictlyautotags').'</label>				
 				<span class="notes">'.__('This option determines how nested tags are handled e.g <strong><em>New York, New York City, New York City Fire Department</em></strong> all contain the words <strong><em>New York</em></strong>. Setting this option to <strong>Tag All</strong> will mean all 3 get tagged. Setting it to <strong>Tag shortest</strong> will mean the shortest match e.g <strong><em>New York</em></strong> gets tagged and setting it to <strong>Tag Longest</strong> means that only exact matches get tagged.', 'strictlyautotags').'</span>
