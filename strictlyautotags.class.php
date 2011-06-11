@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.4
+ * Version: 2.5
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.4";
+	protected $version = "2.5";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -76,12 +76,20 @@ class StrictlyAutoTags{
 	protected $ignorepercentage;
 
 	/**
-	* The list of noise words to use
+	* The list of case sensitive noise words to use
 	*
 	* @access protected
 	* @var string
 	*/
 	protected $noisewords;
+
+	/**
+	* The list of case sensitive noise words to use
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $noisewords_case_sensitive;
 
 
 	/**
@@ -94,15 +102,32 @@ class StrictlyAutoTags{
 
 
 	/**
-	* The default list of noise words to use
+	* The default list of case insensitive noise words to use
 	*
 	* @access protected
 	* @var string
 	*/
-	protected $defaultnoisewords = "about|after|a|all|also|an|and|another|any|are|as|at|be|because|been|before|being|between|both|but|by|came|can|come|could|did|do|each|even|for|from|further|furthermore|get|got|had|has|have|he|her|here|hi|him|himself|how|however|i|if|in|indeed|into|is|it|its|just|like|made|many|may|me|might|more|moreover|most|much|must|my|never|not|now|of|on|only|or|other|our|out|over|put|said|same|see|she|should|since|some|still|such|take|than|that|the|their|them|then|there|therefore|these|they|this|those|through|thus|to|too|under|up|very|was|way|we|well|were|what|when|where|which|while|who|will|why|with|would|you|your"; 
+	protected $defaultnoisewords = "about|after|a|all|also|an|and|another|any|are|as|at|be|because|been|before|being|between|both|but|by|came|can|come|could|did|do|each|even|for|from|further|furthermore|get|got|had|has|have|he|her|here|hi|him|himself|how|however|i|if|in|indeed|into|is|its|just|like|made|many|may|me|might|more|moreover|most|much|must|my|never|not|now|of|on|only|or|other|our|out|over|put|said|same|see|she|should|since|some|still|such|take|than|that|the|their|them|then|there|therefore|these|they|this|those|through|thus|to|too|under|up|very|was|way|we|well|were|what|when|where|which|while|will|why|with|would|you|your"; 
+
 
 	/**
-	* Holds a regular expression for checking whether a word is a noise word
+	* The default list of case sensitive noise words to use
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $defaultnoisewords_case_sensitive = "it|who"; 
+
+	/**
+	* Holds a regular expression for checking whether a word is a noise word or phrase
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $isnoisewordregex_case_sensitive;
+
+	/**
+	* Holds a regular expression for checking whether a word is a case sensitive noise word or phrase
 	*
 	* @access protected
 	* @var string
@@ -116,6 +141,14 @@ class StrictlyAutoTags{
 	* @var string
 	*/
 	protected $removenoisewordsregex;
+
+	/**
+	* Holds a regular expression for removing case sensitive noise words from a string of words
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $removenoisewordsregex_case_sensitive;
 
 	/**
 	* Max no of words to contain in each tag
@@ -143,13 +176,23 @@ class StrictlyAutoTags{
 		$this->GetOptions();
 
 		// create some regular expressions required by the parser
+
+		// case insensitive noise noise word regex
 		
 		// create regex to identify a noise word
-		$this->isnoisewordregex		= "/^(?:" . str_replace("\|","|",preg_quote($this->noisewords,"/")) . ")$/i";
+		$this->isnoisewordregex							= "/^(?:" . str_replace("\|","|",preg_quote($this->noisewords,"/")) . ")$/i";
 
 		// create regex to replace all noise words in a string
-		$this->removenoisewordsregex= "/\b(" . str_replace("\|","|",preg_quote($this->noisewords,"/")) . ")\b/i";
-		
+		$this->removenoisewordsregex					= "/\b(" . str_replace("\|","|",preg_quote($this->noisewords,"/")) . ")\b/i";
+
+		// now for case sensitive noise word regex
+
+		// create regex to identify a noise word
+		$this->isnoisewordregex_case_sensitive			= "/^(?:" . str_replace("\|","|",preg_quote($this->noisewords_case_sensitive,"/")) . ")$/";
+
+		// create regex to replace all noise words in a string
+		$this->removenoisewordsregex_case_sensitive		= "/\b(" . str_replace("\|","|",preg_quote($this->noisewords_case_sensitive,"/")) . ")\b/";
+
 		// load any language specific text
 		load_textdomain('strictlyautotags'	, dirname(__FILE__).'/language/'.get_locale().'.mo');
 
@@ -253,6 +296,8 @@ class StrictlyAutoTags{
 	*/
 	protected function AutoBold($content,$tags){
 
+		set_time_limit(200);
+
 		ShowDebugAutoTag("IN AutoBold $content we have " . count($tags) . " to bold");
 
 		ShowDebugAutoTag($tags);
@@ -272,11 +317,15 @@ class StrictlyAutoTags{
 
 				// wrap tags in strong and keep the formatting e.g dont upper case if the tag is lowercase as it might be inside
 				// an href or src which might screw it up
-				$content = preg_replace("@\b(" . preg_quote($tag) . ")\b@i","<strong>$1</strong>",$content);
+				$content = preg_replace("@\b(" . preg_quote($tag) . ")\b@","<strong>$1</strong>",$content);
 
 
-				// remove bold tags that have been put inside attributes e.g <a href="http://www.<strong>MSNBC</strong>.com">				
-				$content = preg_replace_callback("@(\w+)(\s*=\s*['\"][^'\"]*?)(<strong>)([\s\S]+?)(</strong>)([^'\"]*['\"])@",
+				// remove bold tags that have been put inside attributes e.g <a href="http://www.<strong>MSNBC</strong>.com">	
+				// this can be a bit of killer on large pieces of content so if its causing problems then turn auto bold off
+				// anything that has to do negative lookaheads can kill webservers (see my blog for details) but its a lot better
+				// for me to match first (by bolding) and then clean up by looping through attributes and stripping than trying
+				// to do it all in one negative lookahead regex. I've tried tightening it up and extending the timeout.
+				$content = preg_replace_callback("@(\w+)(=['\"][^'\"]*?)(<strong>)([\s\S]+?)(</strong>)([^'\"]*['\"][/> ])@",
 							create_function(
 							'$matches',					
 							'$res = preg_replace("@<\/?strong>@","",$matches[0] );					
@@ -394,12 +443,12 @@ class StrictlyAutoTags{
 		// we only return from the DB those posts that have no tags
 
 		$sql = $wpdb->prepare("DELETE a,c
-							FROM	{$wpdb->terms} AS a
-							JOIN	{$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
-							WHERE (
-									c.taxonomy = 'post_tag'
-									AND  c.count <= %d
-								);",$notags);
+								FROM	{$wpdb->terms} AS a
+								JOIN	{$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+								WHERE (
+										c.taxonomy = 'post_tag'
+										AND  c.count <= %d
+									);",$notags);
 		
 
 		ShowDebugAutoTag($sql);
@@ -431,9 +480,6 @@ class StrictlyAutoTags{
 		global $wpdb;
 
 		$tags = 0;
-
-		// in future rewrite this with a branch so that if we are looking at posts with no tags then
-		// we only return from the DB those posts that have no tags
 
 		$sql =  $wpdb->prepare("SELECT	COUNT(*) as Tags
 								FROM	{$wpdb->terms} wt
@@ -575,7 +621,15 @@ class StrictlyAutoTags{
 		if(count($match)>0){
 			return true;
 		}else{			
-			return false;
+
+			// check the case sensitive list
+			$count = preg_match($this->isnoisewordregex_case_sensitive,$word,$match);
+
+			if(count($match)>0){
+				return true;
+			}else{
+				return false;
+			}
 		}
 	}
 
@@ -603,6 +657,10 @@ class StrictlyAutoTags{
 	protected function RemoveNoiseWords($content){		
 
 		$content = preg_replace($this->removenoisewordsregex," ",$content);
+
+		// remove case sensitive noise words
+
+		$content = preg_replace($this->removenoisewordsregex_case_sensitive," ",$content);
 
 		return $content;
 	}
@@ -1238,7 +1296,7 @@ class StrictlyAutoTags{
 		if ( !is_array($options) )
 		{
 			// This array sets the default options for the plugin when it is first activated.
-			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true, 'maxtagwords'=>3, 'boldtaggedwords' => false);
+			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true, 'maxtagwords'=>3, 'boldtaggedwords' => false, 'noisewords_case_sensitive'=>$this->defaultnoisewords_case_sensitive);
 		}else{
 
 			// check defaults in case of new functionality added to plugin after installation
@@ -1248,6 +1306,10 @@ class StrictlyAutoTags{
 
 			if(IsNothing($options['noisewords'])){
 				$options['noisewords'] = $this->defaultnoisewords;
+			}
+
+			if(IsNothing($options['noisewords_case_sensitive'])){
+				$options['noisewords_case_sensitive'] = $this->defaultnoisewords_case_sensitive;
 			}
 
 			if(IsNothing($options['ignorepercentage'])){
@@ -1299,23 +1361,25 @@ class StrictlyAutoTags{
 	 */
 	protected function SetValues($options){
 		
-		$this->autodiscover		= $options['autodiscover'];
+		$this->autodiscover					= $options['autodiscover'];
 
-		$this->ranktitle		= $options['ranktitle'];
+		$this->ranktitle					= $options['ranktitle'];
 
-		$this->maxtags			= $options['maxtags'];
+		$this->maxtags						= $options['maxtags'];
 
-		$this->ignorepercentage	= $options['ignorepercentage'];
+		$this->ignorepercentage				= $options['ignorepercentage'];
 
-		$this->noisewords		= $options['noisewords'];
+		$this->noisewords					= $options['noisewords'];
 
-		$this->nestedtags		= $options['nestedtags'];
+		$this->noisewords_case_sensitive	= $options['noisewords_case_sensitive'];
 
-		$this->rankhtml			= $options['rankhtml'];
+		$this->nestedtags					= $options['nestedtags'];
 
-		$this->maxtagwords		= $options['maxtagwords'];
+		$this->rankhtml						= $options['rankhtml'];
 
-		$this->boldtaggedwords	= $options['boldtaggedwords'];
+		$this->maxtagwords					= $options['maxtagwords'];
+
+		$this->boldtaggedwords				= $options['boldtaggedwords'];
 
 	}
 
@@ -1414,19 +1478,18 @@ class StrictlyAutoTags{
 			// check nonce
 			check_admin_referer("tagoptions","strictlytagoptionsnonce");
 
-			$this->uninstall		= (bool) strip_tags(stripslashes($_POST['strictlyautotags-uninstall']));
+			$this->uninstall			= (bool) strip_tags(stripslashes($_POST['strictlyautotags-uninstall']));
 
-			$options['autodiscover']= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
-			$options['ranktitle']	= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
-			$options['nestedtags']	= strip_tags(stripslashes($_POST['strictlyautotags-nestedtags']));
-			$options['rankhtml']	= strip_tags(stripslashes($_POST['strictlyautotags-rankhtml']));
+			$options['autodiscover']	= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
+			$options['ranktitle']		= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
+			$options['nestedtags']		= strip_tags(stripslashes($_POST['strictlyautotags-nestedtags']));
+			$options['rankhtml']		= strip_tags(stripslashes($_POST['strictlyautotags-rankhtml']));
 			$options['boldtaggedwords']	= strip_tags(stripslashes($_POST['strictlyautotags-boldtaggedwords']));			
-			$options['maxtagwords']	= strip_tags(stripslashes($_POST['strictlyautotags-maxtagwords']));		
-			
-			$ignorepercentage		= trim(strip_tags(stripslashes($_POST['strictlyautotags-ignorepercentage'])));			
-			$noisewords				= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords'])));			
-
-			$removenoise			= (bool) strip_tags(stripslashes($_POST['strictlyautotags-removenoise']));
+			$options['maxtagwords']		= strip_tags(stripslashes($_POST['strictlyautotags-maxtagwords']));					
+			$ignorepercentage			= trim(strip_tags(stripslashes($_POST['strictlyautotags-ignorepercentage'])));			
+			$noisewords					= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords'])));	
+			$noisewords_case_sensitive	= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords-case-sensitive'])));	
+			$removenoise				= (bool) strip_tags(stripslashes($_POST['strictlyautotags-removenoise']));
 				
 			// check format is word|word|word
 			if(empty($noisewords)){
@@ -1449,6 +1512,35 @@ class StrictlyAutoTags{
 							$noisemsg = __('The system has removed all saved noise words from your saved post tag list.<br />','strictlyautotags');
 						}else{
 							$errmsg .= __('The system couldn\'t find any saved post tags matching your current noise word list.<br />','strictlyautotags');
+						}
+					}
+				}else{
+					$errmsg .= __('The noise words you entered are in an invalid format.<br />','strictlyautotags');
+				}
+			}
+
+			// handle case sensitive words			
+
+			if(empty($noisewords_case_sensitive)){
+				$noisewords_case_sensitive = $this->defaultnoisewords_case_sensitive;
+			}else{
+				$noisewords_case_sensitive = strtolower($noisewords_case_sensitive);
+
+				// make sure the noise words don't start or end with pipes
+				if( preg_match("/^([-a-z'1-9 ]+\|[-a-z'1-9 ]*)+$/",$noisewords_case_sensitive)){	
+					$options['noisewords_case_sensitive']	= $noisewords_case_sensitive;
+
+					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
+
+					// do we try and remove any saved noise words?
+					if($removenoise){
+
+						ShowDebugAutoTag("Remove any saved noise words");
+
+						if($this->RemoveSavedNoiseWords( $noisewords_case_sensitive )){
+							$noisemsg = __('The system has removed all saved case sensitive noise words from your saved post tag list.<br />','strictlyautotags');
+						}else{
+							$errmsg .= __('The system couldn\'t find any saved post tags matching your current case sensitive noise word list.<br />','strictlyautotags');
 						}
 					}
 				}else{
@@ -1548,7 +1640,15 @@ class StrictlyAutoTags{
 				#supportstrictly{
 					margin-bottom: 15px;
 				}
-				</style>';
+				</style>
+				
+				
+				<script type="text/javascript">
+					var psHost = (("https:" == document.location.protocol) ? "https://" : "http://");
+				document.write(unescape("%3Cscript src=\'" + psHost + "pluginsponsors.com/direct/spsn/display.php?client=strictly-autotags&spot=\' type=\'text/javascript\'%3E%3C/script%3E"));
+
+				</script>
+				';
 
 		echo	'<div class="wrap" id="StrictlyAutoTagsAdmin">';
 
@@ -1636,8 +1736,7 @@ class StrictlyAutoTags{
 				<li>'.__('Treat tags found in the post title, H1 or strong tags as especially important by enabling the Rank Title and Rank HTML options.', 'strictlyautotags').'</li>
 				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
 				<li>'.__('Aid Search Engine Optimisation by bolding your matched tags to emphasis to search engines the important terms within your articles.', 'strictlyautotags').'</li>
-				<li>'.__('Set the Max Tag Words setting to an appropriate value to prevent long capitalised sentences from matching during auto discovery.', 'strictlyautotags').'</li>	
-				<li>'.__('Enable the Bold Tagged Words option to wrap all tags with <strong>&lt;strong&gt;tags&lt;/strong&gt;</strong>.', 'strictlyautotags').'</li>	
+				<li>'.__('Set the Max Tag Words setting to an appropriate value to prevent long capitalised sentences from matching during auto discovery.', 'strictlyautotags').'</li>					
 				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li>
 				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li>
 				<li>'.__('Quickly clean up your system by removing under used saved tags or noise words that have already been tagged.','strictlyautotags').'</li></ul>
@@ -1744,12 +1843,16 @@ class StrictlyAutoTags{
 
 		echo	'<div class="tagopt">
 				<label id="lblnoisewords" for="strictlyautotags-noisewords">'.__('Noise Words','strictlyautotags').'</label>
-				<textarea name="strictlyautotags-noisewords" id="strictlyautotags-noisewords">' . esc_attr($options['noisewords']) . '</textarea>
+				<textarea name="strictlyautotags-noisewords" id="strictlyautotags-noisewords" style="width:100%;">' . esc_attr($options['noisewords']) . '</textarea>
+				</div>
+				<div class="tagopt">
+				<label id="lblnoisewords" for="strictlyautotags-noisewords-case-sensitive">'.__('Case Sensitive Noise Words','strictlyautotags').'</label>
+				<textarea name="strictlyautotags-noisewords-case-sensitive" id="strictlyautotags-noisewords-case-sensitive" style="width:100%;" >' . esc_attr($options['noisewords_case_sensitive']) . '</textarea>
 				</div>
 				<div class="tagopt">
 				<label for="strictlyautotags-removenoise">'.__('Remove Saved Noise Tags','strictlyautotags').'</label>
 				<input type="checkbox" name="strictlyautotags-removenoise" id="strictlyautotags-removenoise" value="false" />				
-				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.) <strong>Whenever you add new noise words to the list you should make sure they are removed from the existing list of saved post tags otherwise they might still get matched. Ticking the Remove Saved Noise Tags option when saving will do this for you.</strong>', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Noise words or stop words, are commonly used English words like <strong><em>any, or, and</em></strong> that are stripped from the content before analysis as you wouldn\'t want these words being used as tags. Please ensure all words are separated by a pipe | character e.g <strong>a|and|at|as</strong>.) <strong>Whenever you add new noise words to the list you should make sure they are removed from the existing list of saved post tags otherwise they might still get matched. Ticking the Remove Saved Noise Tags option when saving will do this for you. </strong><br />If you want to treat particular words or phrases in a case sensitive manner then add them to the <strong>Case Sensitive Noise Words List.</strong>', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<p class="submit"><input value="'.__('Save Options', 'strictlyautotags').'" type="submit" name="SaveOptionsSubmit" id="SaveOptionsSubmit"></p></div></div></form>';

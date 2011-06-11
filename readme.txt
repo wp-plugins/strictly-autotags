@@ -4,8 +4,8 @@ Donate link: http://www.strictly-software.com/donate
 Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
-Tested up to: 3.0.1
-Stable tag: 2.4
+Tested up to: 3.1.0
+Stable tag: 2.5
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -156,3 +156,8 @@ that are currently saved as post tags. This should help the problem where people
 * Added new "Bold Tagged Words" option to wrap tagged words in strong tags to aid SEO 
 * Modified code in the SearchContent method to handle the new Max Tag Words setting
 * Added a few more default locations to the the MatchCountries function including Palestine, Tel Aviv and Belfast
+
+= 2.5 =
+* Added new "Case Sensitive" Noise Word list so that words or phrases that should only be ignored if the exact case matches are handled e.g it is a noise word IT is an acronym
+* Fixed bug that prevented phrases from being added to the noise word list
+* Updated Bold function so only exact matches of the tag are wrapped in bold tags. This is to prevent incorrect case matches of a tag from being bolded.
