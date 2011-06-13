@@ -1498,7 +1498,7 @@ class StrictlyAutoTags{
 				$noisewords = strtolower($noisewords);
 
 				// make sure the noise words don't start or end with pipes
-				if( preg_match("/^([-a-z'1-9]+\|[-a-z'1-9]*)+$/",$noisewords)){	
+				if( preg_match("/^([-a-z'1-9 ]+\|[-a-z'1-9 ]*)+$/",$noisewords)){	
 					$options['noisewords']	= $noisewords;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
