@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.1.0
-Stable tag: 2.5
+Stable tag: 2.6
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -68,96 +68,101 @@ The CIA apologised for the allegations and promised to review its policy of usin
 == Changelog ==
 
 = 1.1 =
-* Changed internal members from private to protected
-* Fixed bug in which an empty post returned an unitialised array
-* Split up the main AutoTag method so that the 3 AutoDiscovery tests are in their own methods
-* Put compatibility functions into their own include file
-* Changed comments to phpdoc format
+* Changed internal members from private to protected.
+* Fixed bug in which an empty post returned an unitialised array.
+* Split up the main AutoTag method so that the 3 AutoDiscovery tests are in their own methods.
+* Put compatibility functions into their own include file.
+* Changed comments to phpdoc format.
 
 = 1.2 =
-* Added Admin page description text into language specific text handler
-* Added continents and major regions into the MatchCountries method
-* Added noise word removal before name matching in the MatchNames method
-* strip all HTML tags from article content before parsing
-* updated regular expression that decapitalises words next to periods to only affect single capitalised words
+* Added Admin page description text into language specific text handler.
+* Added continents and major regions into the MatchCountries method.
+* Added noise word removal before name matching in the MatchNames method.
+* strip all HTML tags from article content before parsing.
+* updated regular expression that decapitalises words next to periods to only affect single capitalised words.
 
 = 1.3 =
-* Added TrustTitle method to check whether it can be used to auto discover new tags or not
-* Removed all HTML entities before checking content
-* Added extra safety check to term parser to handle previosuly entered bad terms
-* Added IsNoiseWord function in to check for capitalised noise words
-* Changed regular expressions to remove all non word characters instead of some punctuation
+* Added TrustTitle method to check whether it can be used to auto discover new tags or not.
+* Removed all HTML entities before checking content.
+* Added extra safety check to term parser to handle previosuly entered bad terms.
+* Added IsNoiseWord function in to check for capitalised noise words.
+* Changed regular expressions to remove all non word characters instead of some punctuation.
 
 = 1.4 =
-* Added new config option Ignore Percentage which sets the percentage of content when capitalised to ignore during auto discovery
-* Added new config option Noise Words which allows user to set the list of noise words to ignore during auto discovery
-* Added new config option Nested Tags which sets how multiple occurring nested tags such as New York, New York City, New York City Fire Department are handled
-* changed regular expression that matches names to match any number of words
-* Added new functions IsNoiseWord, CountCapitals, StripNonWords, ValidContent, SearchContent to strictlyautotags.class.php
-* Added new function IsNothing to strictlyautotagfuncs.php
-* Removed unneccessary rsort call
-* Changed the coding for merging the stored tags and newly discovered ones
+* Added new config option Ignore Percentage which sets the percentage of content when capitalised to ignore during auto discovery.
+* Added new config option Noise Words which allows user to set the list of noise words to ignore during auto discovery.
+* Added new config option Nested Tags which sets how multiple occurring nested tags such as New York, New York City, New York City Fire Department are handled.
+* changed regular expression that matches names to match any number of words.
+* Added new functions IsNoiseWord, CountCapitals, StripNonWords, ValidContent, SearchContent to strictlyautotags.class.php.
+* Added new function IsNothing to strictlyautotagfuncs.php.
+* Removed unneccessary rsort call.
+* Changed the coding for merging the stored tags and newly discovered ones.
 
 = 1.5 =
-* Added IsRomanNumeral function to skip values identified as Aconyms that are Roman Numerals
-* Modifed a few regular expressions using /u which cause errors in cerain cases
-* Added some error handling on some preg_match statements to prevent errors where unknowable tags or patterns cause issues
-* Updated the ShowDebug statement in the function library to handle arrays
+* Added IsRomanNumeral function to skip values identified as Aconyms that are Roman Numerals.
+* Modifed a few regular expressions using /u which cause errors in cerain cases.
+* Added some error handling on some preg_match statements to prevent errors where unknowable tags or patterns cause issues.
+* Updated the ShowDebug statement in the function library to handle arrays.
 
 = 1.6 =
-* Modified MatchNames method so that noise words are not removed from the auto discover text before hand in one go but from each match instead. This prevent two seperate tags from being added together when they shouldn't have been due to a noise word separating the two.
-* Updated the SearchContent method so that the noise words are removed before matching
-* Updated FormatContent so newlines are replaced with periods to reduce false combinations
-* Added a period between the title and content when creating initial search strings
+* Modified MatchNames method so that noise words are not removed from the auto discovery text before hand in one go but instead from each match. This prevent two seperate tags from being added together when they shouldn't have been due to a noise word separating the two.
+* Updated the SearchContent method so that the noise words are removed before matching.
+* Updated FormatContent so newlines are replaced with periods to reduce false combinations.
+* Added a period between the title and content when creating initial search strings.
 
 = 1.7 =
-* Added option to re-tag all existing posts or just those currently without tags
+* Added option to re-tag all existing posts or just those currently without tags.
 * Modified the MatchNames function so that noise words are not removed from potential matches as this can make too many tags nonsensical.
 
 = 1.8 =
-* Removed my own FormatRegEx method and replaced it's usage with preg_quote
-* Removed usage of the non standard add_actions and replaced it's usage with multiple add_action calls
-* Added some major cities to the MatchCountries method
-* Added nonces to admin page to improve security
-* Added esc_attr to HTML input values
+* Removed my own FormatRegEx method and replaced it's usage with preg_quote.
+* Removed usage of the non standard add_actions and replaced it's usage with multiple add_action calls.
+* Added some major cities to the MatchCountries method.
+* Added nonces to admin page to improve security.
+* Added esc_attr to HTML input values.
 
 = 1.9 =
-* Added new admin option which allows users to remove under used tags and keep their saved tag list to a manageable size
-* Ability to specify how many articles a tag has to belong to when being cleaned
-* Added extra help text for noise word list to remind people that when they add noise words they should remove them from the saved post tags as well
+* Added new admin option which allows users to remove under used tags and keep their saved tag list to a manageable size.
+* Ability to specify how many articles a tag has to belong to when being cleaned.
+* Added extra help text for noise word list to remind people that when they add noise words they should remove them from the saved post tags as well.
 
 = 2.0 =
-* Added new checkbox option to admin config page called "Remove Saved Noise Tags" which on saving will remove any noise words in the list
-that are currently saved as post tags. This should help the problem where people have thought the system wasn't working due to noise words being matched.
-* Changed the format of the admin save page to make it look nicer
+* Added new checkbox option to admin config page called "Remove Saved Noise Tags" which on saving will remove any noise words in the list that are currently saved as post tags. This should help the problem where people have thought the system wasn't working due to noise words being matched.
+* Changed the format of the admin save page to make it look nicer.
 
 = 2.1 =
 * Fixed issue with noise word validator in the admin area so that it handles apostrophes, numbers and dashes.
-* Updated the text on the admin page to remind people that this plugin only works with English characters e.g A-Z
+* Updated the text on the admin page to remind people that this plugin only works with English characters e.g A-Z.
 
 = 2.2 =
-* Added new "Rank Important Content" option which ranks matches inside certain HTML tags as more important
-* Added new AUTOTAG_LONG option to increase accuracy so that for content such as New York City Fire Department only an exact match is allowed rather than partials such as New York or New York City
-* Removed the RemoveNoiseWords function call from SearchContent and instead added a check for IsNoiseWord before saving tags
-* Added the RemoveNoiseWords function call to the main AutoTag method to remove noise words from the content used for new tag discovery
-* Updated the SearchContent method to increment hitcounts for previously matched tags
-* Fixed bug with noise word regular expression that was caused by using preg_quote which was adding a slash in front of the pipe delimiters
+* Added new "Rank Important Content" option which ranks matches inside certain HTML tags as more important.
+* Added new AUTOTAG_LONG option to increase accuracy so that for content such as New York City Fire Department only an exact match is allowed rather than partials such as New York or New York City.
+* Removed the RemoveNoiseWords function call from SearchContent and instead added a check for IsNoiseWord before saving tags.
+* Added the RemoveNoiseWords function call to the main AutoTag method to remove noise words from the content used for new tag discovery.
+* Updated the SearchContent method to increment hitcounts for previously matched tags.
+* Fixed bug with noise word regular expression that was caused by using preg_quote which was adding a slash in front of the pipe delimiters.
 
 = 2.3 =
-* Added question mark to the regular expression that matches names and looks for full tag matches
-* Added uninstall option
-* Added counter to show how many tags the plugin has saved since upgrade / installation
-* Added support strictly links to help users support the plugin more easily
-* Added date of installation / upgrade
-* Added register_activation_hook and register_deactivation_hook and the StrictlyAutoTagControl static class
+* Added question mark to the regular expression that matches names and looks for full tag matches.
+* Added uninstall option.
+* Added counter to show how many tags the plugin has saved since upgrade / installation.
+* Added support Strictly-Software.com links to help users support the plugin more easily.
+* Added date of installation / upgrade.
+* Added register_activation_hook and register_deactivation_hook and the StrictlyAutoTagControl static class.
 
 = 2.4 =
-* Added new "Max Tag Words" option which specifies the maximum number of words a tag can have to help prevent long capitalised sentences getting matched
-* Added new "Bold Tagged Words" option to wrap tagged words in strong tags to aid SEO 
-* Modified code in the SearchContent method to handle the new Max Tag Words setting
-* Added a few more default locations to the the MatchCountries function including Palestine, Tel Aviv and Belfast
+* Added new "Max Tag Words" option which specifies the maximum number of words a tag can have to help prevent long capitalised sentences getting matched.
+* Added new "Bold Tagged Words" option to wrap tagged words in strong tags to aid SEO.
+* Modified code in the SearchContent method to handle the new Max Tag Words setting.
+* Added a few more default locations to the the MatchCountries function including Palestine, Tel Aviv and Belfast.
 
 = 2.5 =
-* Added new "Case Sensitive" Noise Word list so that words or phrases that should only be ignored if the exact case matches are handled e.g it is a noise word IT is an acronym
-* Fixed bug that prevented phrases from being added to the noise word list
+* Added new "Case Sensitive" Noise Word list so that words or phrases that should only be ignored if the exact case matches are handled e.g "it" is a noise word "IT" is an acronym.
+* Fixed bug that prevented phrases from being added to the noise word list.
 * Updated Bold function so only exact matches of the tag are wrapped in bold tags. This is to prevent incorrect case matches of a tag from being bolded.
+
+
+= 2.6 =
+* Fixed a bug with the case-insensitive noise word list that was lower casing the words before storing them.
+* Fixed a bug that tested the format of case-insensitive noise words were correct.
+* Added my new Hash Tag Hunter Application to the Stictly Software Recommendations section.

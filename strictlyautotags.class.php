@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.5
+ * Version: 2.6
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.5";
+	protected $version = "2.6";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -1523,11 +1523,10 @@ class StrictlyAutoTags{
 
 			if(empty($noisewords_case_sensitive)){
 				$noisewords_case_sensitive = $this->defaultnoisewords_case_sensitive;
-			}else{
-				$noisewords_case_sensitive = strtolower($noisewords_case_sensitive);
+			}else{			
 
 				// make sure the noise words don't start or end with pipes
-				if( preg_match("/^([-a-z'1-9 ]+\|[-a-z'1-9 ]*)+$/",$noisewords_case_sensitive)){	
+				if( preg_match("/^([-a-z'1-9 ]+\|[-a-z'1-9 ]*)+$/i",$noisewords_case_sensitive)){	
 					$options['noisewords_case_sensitive']	= $noisewords_case_sensitive;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -1873,8 +1872,11 @@ class StrictlyAutoTags{
 				<div class="postbox">						
 				<h3 class="hndle">'.__('Stictly Software Recommendations', 'strictlyautotags').'</h3>					
 				<div class="inside">				
-					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
+					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have developed.', 'strictlyautotags').'</p>
 					<ul>
+						<li><a href="http://www.strictly-software.com/applications/twitter-hash-tag-hunter" title="'.__('Strictly Software Hash Tag Hunter Application','strictlyautotags').'">'.__('Twitter Hash Tag Hunter Application','strictlyautotags').'</a>
+							<p>'.__('Strictly Hash Tag Hunter is a Windows application that is designed to aid Auto Bloggers or Site Owners that make use of Strictly AutoTags and my <a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">Strictly TweetBot plugin</a>. It allows people with new or existing Twitter accounts to find out the #HashTags and @Accounts relevant to the keywords and search terms that your website is based around. Don\'t waste time by Tweeting Hash Tags that aren\'t followed, or by following accounts that are not relevant to your sites content. Save yourself time and energy by letting the <a href="http://www.strictly-software.com/applications/twitter-hash-tag-hunter">Twitter Hash Tag Hunter</a> to do all the important SEO work for you, tracking down key #HashTags and @Accounts your site should be following and tweeting to.','strictlyautotags').'</p>
+						</li>	
 						<li><a href="http://www.strictly-software.com/plugins/strictly-google-sitemap">'.__('Strictly Google Sitemap','strictlyautotags').'</a>
 							<p>'.__('Strictly Google Sitemap is a feature rich Wordpress plugin built for sites requiring high performance. Not only does it use a tiny number of database queries compared to other plugins it uses less memory and was designed specifically for under performing or low spec systems. As well as offering all the features of other sitemap plugins it brings all those missing features such as sitemap index files, XML validation, scheduled builds, configuration analysis and SEO reports.','strictlyautotags').'</p>
 						</li>
