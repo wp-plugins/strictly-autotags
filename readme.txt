@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.1.0
-Stable tag: 2.6
+Stable tag: 2.7
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -33,6 +33,8 @@ the title.
 This plugin is not a replacement for other tag related plugims such as Smart Tags as it doesn't even try to manage the tags within your blog.
 The plugin is designed to do one thing and one thing only which is to add the most relevant and appropriate tags to your posts as well as discovering new
 tags on the way with as little effort as possible.
+As this plugin doesn't rely on HTTP requests to 3rd party tag sites to obtain lists of tags it should be quicker and will find new tags that haven't already
+been added to external lists e.g someones name in a news story for example.
 
 Please note this plugin is designed for the English language and will not work with UTF-8 characters.
 
@@ -64,6 +66,16 @@ The CIA apologised for the allegations and promised to review its policy of usin
 3. Save the post and check the number of tags that get added. The plugin should have found a number of words to use even if you have no existing saved tags in your site.
 
 4. Some people have complained that they have added words to the stop/noise word list which still get tagged and think the plugin is broken. This is not the case and the problem is usually that the user hasn't removed any new noise words from the systems saved post tags first before re-scanning. The noise words are only used in the auto discovery stage of the auto tagging and if tags have already been saved then the site will use them in it's relevancy check whether or not they have been marked as noise. Version 2.0 has a new option to aid the easy removal of noise words from the saved post tag list and this option should be run whenever new noise words are added.
+
+5. If you have any error messages installing the plugin then please try the following to rule out conflicts with other plugins
+	-Disable all other plugins and then try to re-activate the Strictly AutoTag plugin - some caching plugins can cause issues.
+	-If that worked, re-enable the plugins one by one to find the plugin causing the problem. Decide which plugin you want to use.
+	-If that didn't work check you have the latest version of the plugin software (from Wordpress) and the latest version of Wordpress installed
+	-Check you have Javascript and Cookies enabled.
+	-If you can code turn on the DEBUG constant and debug the code to find the problem otherwise contact me and offer me some money to fix the issue :)
+	-Please remember that you get what you pay for so you cannot expect 24 hour support for a free product. Please bear that in mind if you decide to email me. A donation button
+	 is on my site and in the plugin admin page.
+	-If you must email me and haven't chosen to donate even the smallest amount of money please read this >> http://blog.strictly-software.com/2011/10/naming-and-shaming-of-programming.html
 
 == Changelog ==
 
@@ -166,3 +178,6 @@ The CIA apologised for the allegations and promised to review its policy of usin
 * Fixed a bug with the case-insensitive noise word list that was lower casing the words before storing them.
 * Fixed a bug that tested the format of case-insensitive noise words were correct.
 * Added my new Hash Tag Hunter Application to the Stictly Software Recommendations section.
+
+= 2.7 =
+* Removed the sponsorship message as per the issue outlined in http://gregsplugins.com/lib/2011/11/26/automattic-bullies/
