@@ -1639,15 +1639,7 @@ class StrictlyAutoTags{
 				#supportstrictly{
 					margin-bottom: 15px;
 				}
-				</style>
-				
-				
-				<script type="text/javascript">
-					var psHost = (("https:" == document.location.protocol) ? "https://" : "http://");
-				document.write(unescape("%3Cscript src=\'" + psHost + "pluginsponsors.com/direct/spsn/display.php?client=strictly-autotags&spot=\' type=\'text/javascript\'%3E%3C/script%3E"));
-
-				</script>
-				';
+				</style>';
 
 		echo	'<div class="wrap" id="StrictlyAutoTagsAdmin">';
 
