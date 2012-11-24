@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.7
+ * Version: 2.8
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.7";
+	protected $version = "2.8";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -167,6 +167,76 @@ class StrictlyAutoTags{
 	*/
 	protected $boldtaggedwords;
 
+
+	/**
+	* Whether or not to deeplink tags found in the article by linking them to the relevant tag pages
+	*
+	* @access protected
+	* @var bool
+	*/
+	protected $taglinks;
+
+	/**
+	* Max no of posts a tag must have to deeplink it within the post if enabled
+	*
+	* @access protected
+	* @var int
+	*/
+	protected $minpoststotaglink;
+
+	/**
+	* Max no of tags in a post to link
+	*
+	* @access protected
+	* @var int
+	*/
+	protected $maxtagstolink;
+
+	/**
+	* The array holding all tags that have already have the specified amount of tags for deeplinking
+	*
+	* @access protected
+	* @var int
+	*/
+	protected $deeplinkarray;
+
+	/**
+	* The title for any deeplinks including the placeholder for the tag
+	*
+	* @access protected
+	* @var int
+	*/
+	protected $deeplinktitle;
+
+
+	/**
+	* Whether the post we are looking at has had tags added to it manually already and if any have been bolded/linked
+	*
+	* @access protected
+	* @var bool
+	*
+	*/
+	protected $already_strictly_tagged_and_linked;
+
+	/**
+	* Whether we should always remove any deeplinks or bolded tags when re-saving so that removed tags are de-linked and de-bolded and we re-do it
+	*
+	* @access protected
+	* @var bool
+	*
+	*/
+	protected $remove_strictly_tags_and_links;
+
+
+	/**
+	* Whether we should not bother AutoTagging any posts that already have tags
+	*
+	* @access protected
+	* @var bool
+	*
+	*/
+	protected $skip_tagged_posts;
+	
 	public function __construct(){
 
 		// add any new options for users upgrading the plugin
@@ -174,6 +244,9 @@ class StrictlyAutoTags{
 
 		// set up values for config options e.g autodiscover, ranktitle, maxtags
 		$this->GetOptions();
+
+		ShowDebugAutoTag("do we deeplink = " . intval($this->taglinks));
+
 
 		// create some regular expressions required by the parser
 
@@ -200,9 +273,9 @@ class StrictlyAutoTags{
 		add_action('admin_menu'				, array(&$this, 'RegisterAdminPage'));
 		
 		// set a function to run whenever posts are saved that will call our AutoTag function
-		add_action('save_post'				, array(&$this, 'SaveAutoTags'));
-		add_action('publish_post'			, array(&$this, 'SaveAutoTags'));
-		add_action('post_syndicated_item'	, array(&$this, 'SaveAutoTags'));
+		add_action('save_post'				, array(&$this, 'SaveAutoTags'),1);
+		//add_action('publish_post'			, array(&$this, 'SaveAutoTags'),1);
+		//add_action('post_syndicated_item'	, array(&$this, 'SaveAutoTags'),1);
 
 
 	}
@@ -225,10 +298,63 @@ class StrictlyAutoTags{
 		if ( $object == false || $object == null ) {
 			return false;
 		}
+
+		// if we skip posts with tags already then leave now
+		if ( get_the_tags($object->ID) != false) {
+
+			ShowDebugAutoTag("this post has tags already do we skip it skip_tagged_posts = " . intval($this->skip_tagged_posts));
+
+			if($this->skip_tagged_posts){
+
+				ShowDebugAutoTag("We ignore posts already with tags");
+
+				return false;
+			}
+
+		}
 		
+		// have we already got tags against this post and if so do they contain strictly links and bold tags
+		
+		// default content
+		$newcontent = $object->post_content;
+
+		ShowDebugAutoTag("Do we need to clean any Strictly Goodness?");
+
+		$newcontent = $this->CheckAndCleanTags( $newcontent );
+
+		ShowDebugAutoTag("do we deeplink = " . intval($this->taglinks));
+
+		// if we are deep linking we only deep link on existing tags with the appropriate count
+		if($this->taglinks){
+
+			ShowDebugAutoTag("We are deep linking for tags that already have " . $this->minpoststotaglink . " posts associaed with them");
+
+			$sql = $wpdb->prepare("SELECT	name,slug
+									FROM	{$wpdb->terms} AS a
+									JOIN	{$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+									WHERE (
+											c.taxonomy = 'post_tag'											
+											AND  c.count >= %d
+										);",$this->minpoststotaglink);
+
+			// AND slug in('ron-paul','cia','fbi','newt-gingrich')
+
+			ShowDebugAutoTag($sql);
+
+			$this->deeplinkarray = $wpdb->get_results($sql);	
+
+			
+			ShowDebugAutoTag("there are " . count($this->deeplinkarray) . " tags with " .$this->minpoststotaglink . " or more posts against them");
+
+		}
+		
+
+		ShowDebugAutoTag("now auto tag");
+
+		// get the relevant tags for the post
 		$posttags = $this->AutoTag( $object );
 
-		// add tags to post
+		
 		// Append tags if tags to add
 		if ( count($posttags) > 0) {
 
@@ -237,40 +363,59 @@ class StrictlyAutoTags{
 			
 			ShowDebugAutoTag($posttags);
 
-			if($this->boldtaggedwords){
+			if ( count($posttags) > 0) {
 
-				ShowDebugAutoTag("call bold tags");
+				ShowDebugAutoTag("do we bold tags? == " . intval($this->boldtaggedwords) . " or auto link tags = " . intval($this->taglinks));
+				
+				ShowDebugAutoTag($posttags);
 
-			
-				// help SEO by bolding our tags
-				$newcontent = $this->AutoBold($object->post_content,$posttags);
+				if($this->boldtaggedwords || $this->taglinks){
+
+					ShowDebugAutoTag("call bold or deeplink tags");
+
+					if($this->boldtaggedwords){
+						// help SEO by bolding our tags
+						$newcontent = $this->AutoBold($newcontent,$posttags);
+					}
+					
+					ShowDebugAutoTag("auto link tags = " . intval($this->taglinks));
+				
+					
+					if($this->taglinks){
+						
+						ShowDebugAutoTag("lets auto link");
+
+						// help SEO by deeplinking our tags
+						$newcontent = $this->AutoLink($newcontent,$posttags);
+					}
+
+
+					ShowDebugAutoTag("our new content is === " . $newcontent);
+
+					$sql = $wpdb->prepare("UPDATE {$wpdb->posts} SET post_content = %s WHERE id = %d;", $newcontent,$object->ID);
+
+					ShowDebugAutoTag("SQL is $sql");
+
+					/*
+					// resave content
+					// from what I read all params should be unsanitized so that wordpress can run a prepare itself
+					$r = $wpdb->update(
+					  'posts',
+					  array( 'post_content' => $newcontent ),
+					  array( 'id' => $object->ID )
+					);
+
+					ShowDebugAutoTag("should have been updated rows = " . $r);
+					*/
+
+					$r = $wpdb->query($sql);
+					
+					ShowDebugAutoTag("should have been updated rows = " . $r);
 				
 
-				ShowDebugAutoTag("our new content is === " . $newcontent);
-
-				$sql = $wpdb->prepare("UPDATE {$wpdb->posts} SET post_content = %s WHERE id = %d;", $newcontent,$object->ID);
-
-				ShowDebugAutoTag("SQL is $sql");
-
-				// resave content
-				// from what I read all params should be unsanitized so that wordpress can run a prepare itself
-				$r = $wpdb->update(
-				  'posts',
-				  array( 'post_content' => $newcontent ),
-				  array( 'id' => $object->ID )
-				);
-
-				ShowDebugAutoTag("should have been updated rows = " . $r);
-
-
-				$r = $wpdb->query($sql);
-				
-				ShowDebugAutoTag("should have been updated rows = " . $r);
-
-			
-
+				}
 			}
-			
+
 			// Add tags to posts
 			wp_set_object_terms( $object->ID, $posttags, 'post_tag', true );
 
@@ -288,6 +433,83 @@ class StrictlyAutoTags{
 
 		return true;
 	}
+
+	/** Checks for existing bolded or linked tags and remove them if settings say so
+	*
+	* @param string $content;
+	* @returns string;
+	*/
+	protected function CheckAndCleanTags($content){
+
+		ShowDebugAutoTag("IN CheckAndCleanTags");
+
+		$newcontent = $content;
+
+		ShowDebugAutoTag("we have " . strlen($newcontent) . " of content");
+
+
+		if(preg_match("@<(strong|a) class=['\"]StrictlyAutoTag@i",$content)){			
+				
+			ShowDebugAutoTag("The content has signs of Strictly sprinkled in it do we remove = " . intval($this->remove_strictly_tags_and_links));
+
+			// if we re-bold/re-link the article even if tags have been added manually then remove our ones first
+			if($this->remove_strictly_tags_and_links)
+			{
+
+				ShowDebugAutoTag("Content does have StrictlyAutoTag classes on strong or A tags");
+
+				// remove it all so we can link any new tags that have been added as well
+				$newcontent = $this->RemoveBoldAndLinks($newcontent);
+
+				// so we can re-tag it, re-bold and re-link it al
+				$this->already_strictly_tagged_and_linked = false;
+			}
+			else
+			{
+				ShowDebugAutoTag("This content has Strictly Auto Tags/Links and we keep them there");
+
+				$this->already_strictly_tagged_and_linked = true;
+			}
+		}else{
+
+			ShowDebugAutoTag("no tags saved against post");
+
+			// so we can re-tag it, re-bold and re-link it all
+			$this->already_strictly_tagged_and_linked = false;
+			
+		}
+
+		ShowDebugAutoTag("return " . strlen($newcontent) . " of content");
+
+		return $newcontent;
+	}
+
+	/** Removes any existing bold or linked tags
+	*
+	* @param string $content;
+	* @returns string 
+	*/
+	protected function RemoveBoldAndLinks($content){
+
+		ShowDebugAutoTag("IN RemoveBoldAndLinks");
+
+		// as we now put classes on the tags its easier to find and replace
+		set_time_limit(200);
+
+		ShowDebug("b4 replace len is " . strlen($content));
+
+		$content = preg_replace("@(<strong class='StrictlyAutoTagBold'>)([\s\S]+?)(</strong>)@","$2",$content);
+
+		ShowDebugAutoTag("after first replace len is " . strlen($content));
+
+		$content = preg_replace("@(<a class=\"StrictlyAutoTagAnchor\"[^>]+?>)([\s\S]+?)(</a>)@","$2",$content);
+
+		ShowDebug("after 2nd replace len is " . strlen($content));
+
+		return $content;
+
+	}
+
 
 	/** Reformats the main article by highlighting the tagged words
 	*
@@ -309,37 +531,189 @@ class StrictlyAutoTags{
 			//loop and bold unless they are already inside a bold tag
 			foreach($tags as $tag){
 
-
-				ShowDebugAutoTag("bold all matches of $tag");
+				
 
 				// instead of doing negative lookaheads and entering a world of doom match and then clean	
 				// easier to do a positive match than a negative especially with nested matches
 
+				$regex = "@\b(" . preg_quote($tag) . ")\b@";
+
+				ShowDebugAutoTag("regex is $regex");
+
 				// wrap tags in strong and keep the formatting e.g dont upper case if the tag is lowercase as it might be inside
 				// an href or src which might screw it up
-				$content = preg_replace("@\b(" . preg_quote($tag) . ")\b@","<strong>$1</strong>",$content);
+				$content = preg_replace($regex,"<strong class='StrictlyAutoTagBold'>$1</strong>",$content);
 
+				
 
 				// remove bold tags that have been put inside attributes e.g <a href="http://www.<strong>MSNBC</strong>.com">	
 				// this can be a bit of killer on large pieces of content so if its causing problems then turn auto bold off
 				// anything that has to do negative lookaheads can kill webservers (see my blog for details) but its a lot better
 				// for me to match first (by bolding) and then clean up by looping through attributes and stripping than trying
 				// to do it all in one negative lookahead regex. I've tried tightening it up and extending the timeout.
-				$content = preg_replace_callback("@(\w+)(=['\"][^'\"]*?)(<strong>)([\s\S]+?)(</strong>)([^'\"]*['\"][/> ])@",
+				$content = preg_replace_callback("@(\w+)(=['\"][^'\"]*?)(<strong class='StrictlyAutoTagBold'>)([\s\S]+?)(</strong>)([^'\"]*['\"][/> ])@",
 							create_function(
-							'$matches',					
-							'$res = preg_replace("@<\/?strong>@","",$matches[0] );					
+							'$matches',			
+							'$res = preg_replace("@<strong class=\'StrictlyAutoTagBold\'>@","",$matches[0] );				
+							$res = preg_replace("@</?strong>@","",$res );					
 							return $res;')
 						,$content);
 				
 				
+				
+
 				// remove any tags that are now in strong that are also inside other "bold" tags
-				$content = preg_replace("@(<(h[1-6]|strong|b|em|i|a)[^>]*>[^<]*?)(<strong>" .  preg_quote($tag) . "<\/strong>)(.*?<\/?\\2>)@i","$1{$tag}$4",$content);
+				$content = preg_replace("@(<(h[1-6]|strong|b|em|i|a)[^>]*>[^<]*?)(<strong class='StrictlyAutoTagBold'>" .  preg_quote($tag) . "<\/strong>)(.*?<\/?\\2>)@i","$1{$tag}$4",$content);
 
-			
+				
+			}
 
-				ShowDebugAutoTag("look at current bolded content == $content");
+		}
 
+		ShowDebugAutoTag("look at how it would appear");
+		
+
+		ShowDebugAutoTag("return $content");
+
+		return $content;
+
+	}
+
+	
+
+	/** Reformats the main article by highlighting the tagged words in <A> tags to deeplink to the relevant tag page
+	*
+	* @param string $content;
+	* @returns string 
+	*/
+	protected function AutoLink($content,$tags){
+
+		ShowDebugAutoTag("IN AutoLink");
+
+		global $wp_rewrite;
+
+	
+		ShowDebugAutoTag("look at deeplink array");
+
+		ShowDebugAutoTag($this->deeplinkarray);
+
+		set_time_limit(200);
+
+		$no =  count($this->deeplinkarray);
+
+		ShowDebugAutoTag("IN AutoLink $content we have " .  $no . " to deeplink");
+
+		if(!empty($content) && is_array($this->deeplinkarray) && $no>0){
+
+			ShowDebugAutoTag("lets loop through our deep linked tags");
+
+			// get tag permalink structure and remove trailing slash so it can be added on correcly if needs be
+			$taglink = rtrim($wp_rewrite->get_tag_permastruct(),'/');
+
+			ShowDebugAutoTag("tag link permastruct is " . $taglink);
+
+			// store whether trailing slashes need to be added 
+			$this->addtrailingslash = $wp_rewrite->use_trailing_slashes;
+
+			ShowDebugAutoTag("tag permalink structure is $taglink");
+
+			// ensure the start of the tag rewrite url has a / as for some reason 3.0+ stopped adding it
+			if(!empty($taglink)){
+				if(substr($taglink,0,1) != "/"){
+					$taglink = "/" .  $taglink;
+				}
+			}
+
+
+			// set tag placeholder			
+			$tagplaceholder = ($this->addtrailingslash) ? $taglink ."/" : $taglink;
+			$siteurl	= untrailingslashit(get_option('siteurl'));
+
+			ShowDebugAutoTag("site url is $siteurl");
+
+			//$tagurl = "<a href=\"##TAGURL##\" class=\"StrictlyAutoTagAnchor\" title=\"" . str_replace($this->deeplinktitle,"%tag%",$tag) . "\">$tag</a>";      
+
+			ShowDebugAutoTag("loop through array and deeplink");
+
+			$lasttag = $lastslug = "";
+			//loop and bold unless they are already inside a bold tag
+			foreach($this->deeplinkarray as $tag){
+
+				$lasttag = $tag->name;
+				$lastslug = $tag->slug;
+
+				ShowDebugAutoTag("tag = " . $tag->name . " and slug = " . $tag->slug);
+
+				// we skip any that are nested in tagged links already
+				$testreg = "@<a class=\"StrictlyAutoTagAnchor\"[^>]+?>[^<]*?" . preg_quote($tag->name) . "[^<]*?</a>@";
+
+				if(preg_match($testreg,$content)){
+
+					ShowDebugAutoTag("ignore this tag " . $tag->name . " as its already within a linked tag regex was == " . $testreg);
+						
+				}else{
+
+					ShowDebugAutoTag("this tag " . $tag->name . " is NOT already within a linked tag");
+
+				
+					// handle old and new
+					$actualtitle = preg_replace("@%tag%@i",$tag->name,$this->deeplinktitle);
+					$actualtitle = preg_replace("@%post_tag%@i",$tag->name,$actualtitle);
+					$actualurl   = $siteurl . preg_replace('@%tag%@i',$tag->slug,$taglink);
+					$actualurl   = preg_replace('@%post_tag%@i',$tag->slug,$actualurl);
+
+
+					//ShowDebugAutoTag("did we already bold = " . intval($this->boldtaggedwords));
+
+					// as this runs after auto bold if thats enabled i can just use those markers as replacements
+					if($this->boldtaggedwords){
+
+						
+						$link = "<a class=\"StrictlyAutoTagAnchor\" href=\"" . $actualurl . "\" title=\"" . $actualtitle . "\" >" . $tag->name . "</a>";
+
+
+						$regex = "@<strong class='StrictlyAutoTagBold'>" . preg_quote($tag->name) . "<\/strong>@";
+
+						// wrap tags in anchors and keep the formatting e.g dont upper case if the tag is lowercase as it might be inside
+						// an href or src which might screw it up
+						$content = preg_replace($regex,$link,$content,$this->maxtagstolink);
+
+					}else{
+
+						$origcontent = $content;
+
+						// instead of doing negative lookaheads and entering a world of doom match and then clean	
+						// easier to do a positive match than a negative especially with nested matches
+						$link = "<a class=\"StrictlyAutoTagAnchor\" href=\"" . $actualurl  . "\" title=\"" . $actualtitle . "\" >$1</a>";
+
+						
+
+						// wrap tags in anchors and keep the formatting e.g dont upper case if the tag is lowercase as it might be inside
+						// an href or src which might screw it up
+						$content = preg_replace("@\b(" . preg_quote($tag->name) . ")\b@",$link,$content,$this->maxtagstolink);
+
+
+						// remove anchor tags that have been put inside attributes e.g <a href="http://www.<a href="http://www.mysite.com/tags/MNSBC">MSNBC</a>>MSNBC</a>.com">	
+						// this can be a bit of killer on large pieces of content so if its causing problems then turn deeplinking off
+						// anything that has to do negative lookaheads can kill webservers (see my blog for details) but its a lot better
+						// for me to match first (by linking) and then clean up by looping through attributes and stripping than trying
+						// to do it all in one negative lookahead regex. I've tried tightening it up and extending the timeout.
+						$content = preg_replace_callback("@(\w+)(=['\"][^'\"]*?)(<a class=\"StrictlyAutoTagAnchor\" [^>]+?>)([\s\S]+?)(</a>)([^'\"]*['\"][/> ])@",
+									create_function(
+									'$matches',					
+									'$res = preg_replace("@<a [^>]+?>[\s\S]+?</a>@","",$matches[0] );
+									return $res;')
+								,$content);
+						
+						
+
+						// remove any anchor tags that are now in other anchors
+						$content = preg_replace("@(<(a)[^>]*>[^<]*?)(<a class=\"StrictlyAutoTagAnchor\"[^>]+?>" .  preg_quote($tag->name) . "<\/a>)(.*?<\/?\\2>)@i","$1{$tag->name}$4",$content);
+
+					}
+
+					
+				}
 			}
 
 		}
@@ -349,6 +723,7 @@ class StrictlyAutoTags{
 		return $content;
 
 	}
+	
 				
 	/**
 	 * Removes any noise words from the system if they are already used as post tags
@@ -394,7 +769,7 @@ class StrictlyAutoTags{
 			// cannot use the prepare function as it will add extra slashes and quotes
 			$sql = sprintf("DELETE a,c
 							FROM	{$wpdb->terms} AS a
-							LEFT JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+							JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
 							WHERE (
 									c.taxonomy = 'post_tag'
 									AND  a.Name IN(%s)
@@ -497,7 +872,130 @@ class StrictlyAutoTags{
 	}
 
 	
+	/**
+	 * Updates existing posts by adding in deeplinks and new bold tags
+	 * The $all_posts param specifies whether all posts are re-tagged or only those without tags
+	 *
+	 * @param bool  $all_posts
+	 * @return int
+	 */
+	protected function ReLinkAndTagPosts( $all_posts=false ) {
 
+
+		ShowDebugAutoTag("IN ReLinkAndTagPosts " . intval( $all_posts));
+
+		set_time_limit(0);
+
+		global $wpdb;
+
+		$updated = 0;
+
+		// in future rewrite this with a branch so that if we are looking at posts with no tags then
+		// we only return from the DB those posts that have no tags
+
+		// handle custom post types by allowing everything that isnt a page, attachment or revision
+		$sql = "SELECT id 
+				FROM {$wpdb->posts}
+				WHERE post_password='' AND post_status='publish' AND post_type NOT IN('page', 'attachment', 'revision') 
+				ORDER BY post_modified_gmt DESC;";
+
+
+		ShowDebugAutoTag($sql);
+
+		$posts = $wpdb->get_results($sql);
+		
+		foreach($posts as $post){
+
+			// definitley a better way to do this but would involve a major rewrite!
+
+			ShowDebugAutoTag("get post id " . $post->id);
+
+			$object = get_post($post->id);
+			if ( $object == false || $object == null ) {
+				return false;
+			}		
+
+			
+			
+			// have we already got tags against this post and if so do they contain strictly links and bold tags and if they do - do we need to remove them?	
+
+			ShowDebugAutoTag("Do we need to clean any Strictly Goodness?");
+
+			$newcontent = $this->CheckAndCleanTags( $object->post_content );
+			
+			// find tags for this post
+			$posttags = $this->AutoTag( $object,  $all_posts );
+
+
+			ShowDebugAutoTag("do we bold and deeplink");
+
+			if($this->boldtaggedwords || $this->taglinks){				
+
+				ShowDebugAutoTag("call bold or deeplink tags");
+
+				if($this->boldtaggedwords && count($posttags) > 0){
+
+					ShowDebugAutoTag("Auto Bold this content");
+
+					// help SEO by bolding our tags
+					$newcontent = $this->AutoBold($newcontent,$posttags);
+
+				}
+
+				if($this->taglinks && count($posttags) > 0){
+
+					ShowDebugAutoTag("Auto Link this content");
+
+					// help SEO by deeplinking our tags
+					$newcontent = $this->AutoLink($newcontent,$posttags);
+
+				}
+
+				// now save the new deeplinked bolded content
+
+				ShowDebugAutoTag("our new content is === " . $newcontent);
+
+				$sql = $wpdb->prepare("UPDATE {$wpdb->posts} SET post_content = %s WHERE id = %d;", $newcontent,$object->ID);
+
+				ShowDebugAutoTag("SQL is $sql");
+
+				$r = $wpdb->query($sql);
+					
+				ShowDebugAutoTag("should have been updated rows = " . $r);				
+			
+			}
+
+			ShowDebugAutoTag("did we find new tags to save?");
+
+			if($posttags !== false){
+			
+				$updated++;
+				
+				ShowDebugAutoTag("we have " .  count($posttags) . " tags to add to this post");
+
+				// add tags to post
+				// Append tags if tags to add
+				if ( count($posttags) > 0) {
+					
+					// Add tags to posts
+					wp_set_object_terms( $object->ID, $posttags, 'post_tag', true );
+					
+					// Clean cache
+					if ( 'page' == $object->post_type ) {
+						clean_page_cache($object->ID);
+					} else {
+						clean_post_cache($object->ID);
+					}			
+				}
+			}
+
+			unset($object,$posttags);
+		}
+
+		unset($posts);		
+
+		return $updated;
+	}
 	
 	/**
 	 * Updates existing posts with tags
@@ -519,7 +1017,7 @@ class StrictlyAutoTags{
 
 		$sql = "SELECT id 
 				FROM {$wpdb->posts}
-				WHERE post_password='' AND post_status='publish' AND post_type='post' 
+				WHERE post_password='' AND post_status='publish' AND post_type NOT IN('page', 'attachment', 'revision') 
 				ORDER BY post_modified_gmt DESC;";
 
 
@@ -539,7 +1037,53 @@ class StrictlyAutoTags{
 			}		
 			
 
+
+			ShowDebugAutoTag("Do we need to clean any Strictly Goodness?");
+
+			$newcontent = $this->CheckAndCleanTags( $object->post_content );
+			
+			// find tags for this post
 			$posttags = $this->AutoTag( $object,  $all_posts );
+
+
+			ShowDebugAutoTag("do we bold and deeplink");
+
+			if($this->boldtaggedwords || $this->taglinks){				
+
+				ShowDebugAutoTag("call bold or deeplink tags");
+
+				if($this->boldtaggedwords && count($posttags) > 0){
+
+					ShowDebugAutoTag("Auto Bold this content");
+
+					// help SEO by bolding our tags
+					$newcontent = $this->AutoBold($newcontent,$posttags);
+
+				}
+
+				if($this->taglinks && count($posttags) > 0){
+
+					ShowDebugAutoTag("Auto Link this content");
+
+					// help SEO by deeplinking our tags
+					$newcontent = $this->AutoLink($newcontent,$posttags);
+
+				}
+
+				// now save the new deeplinked bolded content
+
+				ShowDebugAutoTag("our new content is === " . $newcontent);
+
+				$sql = $wpdb->prepare("UPDATE {$wpdb->posts} SET post_content = %s WHERE id = %d;", $newcontent,$object->ID);
+
+				ShowDebugAutoTag("SQL is $sql");
+
+				$r = $wpdb->query($sql);
+					
+				ShowDebugAutoTag("should have been updated rows = " . $r);				
+			
+			}
+
 
 			if($posttags !== false){
 			
@@ -828,9 +1372,16 @@ class StrictlyAutoTags{
 	public function AutoTag($object,$all_posts=false){
 
 		if(!$all_posts){
+
 			// skip posts with tags already added
-			if ( get_the_tags($object->ID) != false) {
-				return false;
+			if ( get_the_tags($object->ID) != false) {				
+				
+				if(($this->boldtaggedwords || $this->taglinks) && $this->already_strictly_tagged_and_linked){
+				
+					ShowDebugAutoTag("No need to re tag as this is already tagged and linked");
+
+					return false;
+				}
 			}
 		}
 
@@ -1015,17 +1566,17 @@ class StrictlyAutoTags{
 					ShowDebugAutoTag("HEADER MATCH == " . $match[2]);
 
 					if($match[1] == "h1"){
-						$score = 500;
+						$score = 900;
 					}elseif($match[1] == "h2"){
-						$score = 400;
+						$score = 650;
 					}elseif($match[1] == "h3"){
-						$score = 350;
+						$score = 500;
 					}elseif($match[1] == "h4"){
-						$score = 300;
+						$score = 350;
 					}elseif($match[1] == "h5"){
-						$score = 275;
-					}elseif($match[1] == "h6"){
 						$score = 250;
+					}elseif($match[1] == "h6"){
+						$score = 200;
 					}
 
 					$important_content = html_entity_decode(strip_tags($match[2]));
@@ -1050,7 +1601,7 @@ class StrictlyAutoTags{
 
 					$important_content = html_entity_decode(strip_tags($match[2]));
 
-					$this->SearchContent($important_content,$terms,$tagstack,200);
+					$this->SearchContent($important_content,$terms,$tagstack,100);
 				}
 
 			}
@@ -1291,12 +1842,14 @@ class StrictlyAutoTags{
 		// get saved options from wordpress DB
 		$options = get_option('strictlyautotags');
 
-		
+		ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
+
 		// if there are no saved options then use defaults
 		if ( !is_array($options) )
 		{
 			// This array sets the default options for the plugin when it is first activated.
-			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true, 'maxtagwords'=>3, 'boldtaggedwords' => false, 'noisewords_case_sensitive'=>$this->defaultnoisewords_case_sensitive);
+			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true, 'maxtagwords'=>3, 'boldtaggedwords' => false, 'noisewords_case_sensitive'=>$this->defaultnoisewords_case_sensitive, 'taglinks'=>false, 'deeplinktitle'=>"View all articles about %post_tag% here", 'maxtagstolink'=>2, 'minpoststotaglink'=>4, 'removestrictlytagsandlinks'=>false, 'skiptaggedposts'=>false);
+
 		}else{
 
 			// check defaults in case of new functionality added to plugin after installation
@@ -1328,8 +1881,46 @@ class StrictlyAutoTags{
 				$options['boldtaggedwords'] = false;
 			}
 
+			ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
+
+
+			// paid for special options
+			if(IsNothing($options['taglinks'])){
+
+				ShowDebugAutoTag("options['taglinks'] is nothing set to false");
+
+				$options['taglinks'] = false;
+			}
+
+			ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($options['taglinks']));
+
+			if(IsNothing($options['removestrictlytagsandlinks'])){
+
+				ShowDebugAutoTag("options['removestrictlytagsandlinks'] is nothing set to false");
+
+				$options['removestrictlytagsandlinks'] = false;
+			}
 			
+			if(IsNothing($options['skiptaggedposts'])){
+
+				ShowDebugAutoTag("options['skiptaggedposts'] is nothing set to false");
+
+				$options['skiptaggedposts'] = false;
+			}
+
 			
+			if(IsNothing($options['deeplinktitle'])){
+				$options['deeplinktitle'] = "View all articles about %post_tag% here";
+			}
+
+			if(IsNothing($options['maxtagstolink'])){
+				$options['maxtagstolink'] = 2;
+			}
+			
+			if(IsNothing($options['minpoststotaglink'])){
+				$options['minpoststotaglink'] = 4;
+			}
+
 		}
 
 		// set internal members		
@@ -1381,6 +1972,26 @@ class StrictlyAutoTags{
 
 		$this->boldtaggedwords				= $options['boldtaggedwords'];
 
+		ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($options['taglinks']));
+
+
+		$this->taglinks						= $options['taglinks'];
+
+		ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
+
+
+		$this->deeplinktitle				= $options['deeplinktitle'];
+
+		$this->maxtagstolink				= $options['maxtagstolink'];
+
+		$this->minpoststotaglink			= $options['minpoststotaglink'];
+
+		$this->remove_strictly_tags_and_links= $options['removestrictlytagsandlinks'];
+
+		$this->skip_tagged_posts			= $options['skiptaggedposts'];
+			
+
+		
 	}
 
 	
@@ -1394,6 +2005,8 @@ class StrictlyAutoTags{
 		if(!is_admin()){
 			die("You are not allowed to view this page");
 		}
+
+		ShowDebugAutoTag("IN AdminOptions");
 
 		// get saved options
 		$options		= $this->GetOptions();
@@ -1471,6 +2084,31 @@ class StrictlyAutoTags{
 			}
 		}
 
+		if ( $_POST['RelinkSubmit'] )
+		{
+
+			ShowDebugAutoTag("ReLink And ReTag Posts");
+
+			// check nonce
+			check_admin_referer("retag2","strictlyretagnonce");
+
+			// do we retag all posts?
+			$allposts	= (bool) strip_tags(stripslashes($_POST['strictlyautotags-tagless2']));	
+
+			ShowDebugAutoTag("allposts = " . $allposts);
+
+			$updated = $this->ReLinkAndTagPosts($allposts);
+
+			if($updated == 0){
+				$msg = sprintf(__('No Posts were re-tagged or deeplinked','strictlyautotags'),$updated);
+			}else if($updated == 1){
+				$msg = sprintf(__('1 Post was re-tagged and deeplinkedd','strictlyautotags'),$updated);
+			}else{
+				$msg = sprintf(__('%d Posts have been re-tagged and deeplinked','strictlyautotags'),$updated);
+			}
+		}
+		
+
 
 		// if our option form has been submitted then save new values
 		if ( $_POST['SaveOptionsSubmit'] )
@@ -1478,18 +2116,23 @@ class StrictlyAutoTags{
 			// check nonce
 			check_admin_referer("tagoptions","strictlytagoptionsnonce");
 
-			$this->uninstall			= (bool) strip_tags(stripslashes($_POST['strictlyautotags-uninstall']));
+			ShowDebugAutoTag("get saved values");
 
-			$options['autodiscover']	= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
-			$options['ranktitle']		= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
-			$options['nestedtags']		= strip_tags(stripslashes($_POST['strictlyautotags-nestedtags']));
-			$options['rankhtml']		= strip_tags(stripslashes($_POST['strictlyautotags-rankhtml']));
-			$options['boldtaggedwords']	= strip_tags(stripslashes($_POST['strictlyautotags-boldtaggedwords']));			
-			$options['maxtagwords']		= strip_tags(stripslashes($_POST['strictlyautotags-maxtagwords']));					
-			$ignorepercentage			= trim(strip_tags(stripslashes($_POST['strictlyautotags-ignorepercentage'])));			
-			$noisewords					= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords'])));	
-			$noisewords_case_sensitive	= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords-case-sensitive'])));	
-			$removenoise				= (bool) strip_tags(stripslashes($_POST['strictlyautotags-removenoise']));
+			$this->uninstall						= (bool) strip_tags(stripslashes($_POST['strictlyautotags-uninstall']));
+			$options['autodiscover']				= strip_tags(stripslashes($_POST['strictlyautotags-autodiscover']));
+			$options['skiptaggedposts']				= (bool)strip_tags(stripslashes($_POST['strictlyautotags-skip_tagged_posts']));				
+			$options['ranktitle']					= strip_tags(stripslashes($_POST['strictlyautotags-ranktitle']));			
+			$options['nestedtags']					= strip_tags(stripslashes($_POST['strictlyautotags-nestedtags']));
+			$options['rankhtml']					= strip_tags(stripslashes($_POST['strictlyautotags-rankhtml']));
+			$options['boldtaggedwords']				= strip_tags(stripslashes($_POST['strictlyautotags-boldtaggedwords']));	
+			$options['taglinks']					= (bool)strip_tags(stripslashes($_POST['strictlyautotags-taglinks']));
+			$options['deeplinktitle']				= strip_tags(stripslashes($_POST['strictlyautotags-deeplinktitle']));	
+			$options['removestrictlytagsandlinks']	= (bool)strip_tags(stripslashes($_POST['strictlyautotags-remove_strictly_tags_and_links']));					
+
+			$ignorepercentage						= trim(strip_tags(stripslashes($_POST['strictlyautotags-ignorepercentage'])));			
+			$noisewords								= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords'])));	
+			$noisewords_case_sensitive				= trim(strip_tags(stripslashes($_POST['strictlyautotags-noisewords-case-sensitive'])));	
+			$removenoise							= (bool) strip_tags(stripslashes($_POST['strictlyautotags-removenoise']));
 				
 			// check format is word|word|word
 			if(empty($noisewords)){
@@ -1498,7 +2141,7 @@ class StrictlyAutoTags{
 				$noisewords = strtolower($noisewords);
 
 				// make sure the noise words don't start or end with pipes
-				if( preg_match("/^([-a-z'1-9 ]+\|[-a-z'1-9 ]*)+$/",$noisewords)){	
+				if( preg_match("/^([-a-z'1-9]+\|[-a-z'1-9]*)+$/",$noisewords)){	
 					$options['noisewords']	= $noisewords;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -1523,7 +2166,8 @@ class StrictlyAutoTags{
 
 			if(empty($noisewords_case_sensitive)){
 				$noisewords_case_sensitive = $this->defaultnoisewords_case_sensitive;
-			}else{			
+			}else{
+				$noisewords_case_sensitive = $noisewords_case_sensitive;
 
 				// make sure the noise words don't start or end with pipes
 				if( preg_match("/^([-a-z'1-9 ]+\|[-a-z'1-9 ]*)+$/i",$noisewords_case_sensitive)){	
@@ -1572,7 +2216,24 @@ class StrictlyAutoTags{
 				$errmsg .= __('The value your entered for the Ignore Capitals Percentage was invalid: (0 - 100)<br />','strictlyautotags');
 				$options['ignorepercentage']	= 50;
 			}
+
+			$maxtagstolink				= strip_tags(stripslashes($_POST['strictlyautotags-maxtagstolink']));
+			if(is_numeric($maxtagstolink) && $maxtagstolink >= 0 ){
+				$options['maxtagstolink']		= $maxtagstolink;
+			}else{
+				$errmsg .= __('The value you entered for Max Tags to Link was invalid: (> 0)<br />','strictlyautotags');
+				$options['maxtagstolink']		= 0;
+			}
+
+			$minpoststotaglink				= strip_tags(stripslashes($_POST['strictlyautotags-minpoststotaglink']));
+			if(is_numeric($minpoststotaglink) && $minpoststotaglink >= 0 ){
+				$options['minpoststotaglink']		= $minpoststotaglink;
+			}else{
+				$errmsg .= __('The value you entered for Min no of Tagged Posts to Link was invalid: (> 0)<br />','strictlyautotags');
+				$options['minpoststotaglink']		= 0;
+			}
 			
+
 			if(!empty($errmsg)){
 				$errmsg = substr($errmsg,0,strlen($errmsg)-6);
 			}
@@ -1639,7 +2300,12 @@ class StrictlyAutoTags{
 				#supportstrictly{
 					margin-bottom: 15px;
 				}
-				</style>';
+				#strictlyautotags-deeplinktitle{
+					width: 350px !important;
+				}
+				</style>
+				
+				';
 
 		echo	'<div class="wrap" id="StrictlyAutoTagsAdmin">';
 
@@ -1727,13 +2393,16 @@ class StrictlyAutoTags{
 				<li>'.__('Treat tags found in the post title, H1 or strong tags as especially important by enabling the Rank Title and Rank HTML options.', 'strictlyautotags').'</li>
 				<li>'.__('Handle badly formatted content by setting the Ignore Capitals Percentage to an appropiate amount.', 'strictlyautotags').'</li>
 				<li>'.__('Aid Search Engine Optimisation by bolding your matched tags to emphasis to search engines the important terms within your articles.', 'strictlyautotags').'</li>
+				<li>'.__('Also help your internal SEO by deeplinking a certain number of tags per article to their related tag page.', 'strictlyautotags').'</li>
 				<li>'.__('Set the Max Tag Words setting to an appropriate value to prevent long capitalised sentences from matching during auto discovery.', 'strictlyautotags').'</li>					
 				<li>'.__('Only the most frequently occurring tags will be added against the post.', 'strictlyautotags').'</li>
 				<li>'.__('Re-Tag all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li>
+				<li>'.__('Re-Tag and Re-Link all your existing posts in one go or just those currently without tags.','strictlyautotags').'</li>
 				<li>'.__('Quickly clean up your system by removing under used saved tags or noise words that have already been tagged.','strictlyautotags').'</li></ul>
 				</div>
 				</div>';
 
+				
 		
 
 		
@@ -1750,7 +2419,18 @@ class StrictlyAutoTags{
 				<p class="submit"><input value="'.__('Re-Tag Posts', 'strictlyautotags').'" type="submit" name="RepostSubmit" id="RepostSubmit"></p>
 				</div></div></form>';
 
-				
+		echo	'<form name="retag2" id="retag2" method="post">
+				<div class="postbox">						
+					<h3 class="hndle">'.__('Re-Tag and Re-Link Existing Posts', 'strictlyautotags').'</h3>					
+					<div class="inside">
+				'. wp_nonce_field("retag2","strictlyretagnonce",false,false) .'
+				<div class="tagopt">
+				<label for="strictlyautotags-tagless2">'.__('Re-Tag and Re-Link All Posts','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-tagless2" id="strictlyautotags-tagless2" value="true" ' . ((!IsNothing($allposts)) ? 'checked="checked"' : '') . '/>
+				<span class="notes">'.__('Checking this will option will mean that all your posts will be re-tagged and deeplinked otherwise only posts without any current tags will be parsed for appropriate tags.', 'strictlyautotags').'</span>
+				</div>
+				<p class="submit"><input value="'.__('Re-Link and Re-Tag Posts', 'strictlyautotags').'" type="submit" name="RelinkSubmit" id="RelinkSubmit"></p>
+				</div></div></form>';		
 
 		echo	'<form name="cleanup" id="cleanup" method="post">
 				<div class="postbox">						
@@ -1783,6 +2463,14 @@ class StrictlyAutoTags{
 				<input type="checkbox" name="strictlyautotags-autodiscover" id="strictlyautotags-autodiscover" value="true" ' . (($options['autodiscover']) ? 'checked="checked"' : '') . '/>				
 				<span class="notes">'.__('Automatically discover new tags on each post.', 'strictlyautotags').'</span>
 				</div>';
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-skip_tagged_posts">'.__('Skip Pre-Tagged Posts','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-skip_tagged_posts" id="strictlyautotags-skip_tagged_posts" value="true" ' . (($options['skiptaggedposts']) ? 'checked="checked"' : '') . '/>				
+				<span class="notes">'.__('Don\'t AutoTag posts that already have been tagged. Ideally set this to true, then let the plugin tag your posts before manually adding any tags yourself and re-saving. On the second save the post won\'t be scanned for tags or have SEO work carried out on it.', 'strictlyautotags').'</span>
+				</div>';
+		
+
 
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-ranktitle">'.__('Rank Title','strictlyautotags').'</label>
@@ -1818,7 +2506,40 @@ class StrictlyAutoTags{
 				<span class="notes">'.__('Wrap matched tags found within the post article with &lt;strong&gt; tags to aid SEO and empahsis your tags to readers.', 'strictlyautotags').'</span>
 				</div>';
 
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-taglinks">'.__('Deeplink Tagged Words','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-taglinks" id="strictlyautotags-taglinks" value="true" ' . (($options['taglinks']) ? 'checked="checked"' : '') . '/>				
+				<span class="notes">'.__('Wrap matched tags found within the post article with links to the relevant tag page. This aids SEO by deeplinking your site.', 'strictlyautotags').'</span>
+				</div>';
 
+
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-deeplinktitle">'.__('Deeplink Tagged Words','strictlyautotags').'</label>
+				<input type="text" name="strictlyautotags-deeplinktitle" id="strictlyautotags-deeplinktitle" value="' . esc_attr($options['deeplinktitle']) . '" />
+				<span class="notes">'.__('The title to use for deeplinked anchor tags. Use %post_tag% for the placeholder where the tag word will appear e.g "View all posts for this %post_tag% here".', 'strictlyautotags').'</span>
+				</div>';
+
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-maxtagstolink">'.__('Max Tags to Deeplink','strictlyautotags').'</label>
+				<input type="text" name="strictlyautotags-maxtagstolink" id="strictlyautotags-maxtagstolink" value="' . esc_attr($options['maxtagstolink']) . '" />
+				<span class="notes">'.__('Set the maximum number of tags within a post to deeplink.', 'strictlyautotags').'</span>
+				</div>';
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-minpoststotaglink">'.__('Min no of Tags within a Post to deeplink to.','strictlyautotags').'</label>
+				<input type="text" name="strictlyautotags-minpoststotaglink" id="strictlyautotags-minpoststotaglink" value="' . esc_attr($options['maxtagstolink']) . '" />
+				<span class="notes">'.__('Set the minimum number of tags tbat a post must have before deeplinking to their tag page.', 'strictlyautotags').'</span>
+				</div>';
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-remove_strictly_tags_and_links">'.__('Always Cleanup on Re-Save','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-remove_strictly_tags_and_links" id="strictlyautotags-remove_strictly_tags_and_links" value="true" ' . (($options['removestrictlytagsandlinks']) ? 'checked="checked"' : '') . '/>						
+				<span class="notes">'.__('Whether to always remove any deeplinked or bolded tags on re-saving a post in case those tags have been removed. Will take longer to run and not always required.', 'strictlyautotags').'</span>
+				</div>';
+
+	
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-ignorepercentage">'.__('Ignore Capitals Percentage','strictlyautotags').'</label>
 				<input type="text" name="strictlyautotags-ignorepercentage" id="strictlyautotags-ignorepercentage" value="' . $options['ignorepercentage'] . '" />				
@@ -1864,11 +2585,8 @@ class StrictlyAutoTags{
 				<div class="postbox">						
 				<h3 class="hndle">'.__('Stictly Software Recommendations', 'strictlyautotags').'</h3>					
 				<div class="inside">				
-					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have developed.', 'strictlyautotags').'</p>
+					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
 					<ul>
-						<li><a href="http://www.strictly-software.com/applications/twitter-hash-tag-hunter" title="'.__('Strictly Software Hash Tag Hunter Application','strictlyautotags').'">'.__('Twitter Hash Tag Hunter Application','strictlyautotags').'</a>
-							<p>'.__('Strictly Hash Tag Hunter is a Windows application that is designed to aid Auto Bloggers or Site Owners that make use of Strictly AutoTags and my <a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">Strictly TweetBot plugin</a>. It allows people with new or existing Twitter accounts to find out the #HashTags and @Accounts relevant to the keywords and search terms that your website is based around. Don\'t waste time by Tweeting Hash Tags that aren\'t followed, or by following accounts that are not relevant to your sites content. Save yourself time and energy by letting the <a href="http://www.strictly-software.com/applications/twitter-hash-tag-hunter">Twitter Hash Tag Hunter</a> to do all the important SEO work for you, tracking down key #HashTags and @Accounts your site should be following and tweeting to.','strictlyautotags').'</p>
-						</li>	
 						<li><a href="http://www.strictly-software.com/plugins/strictly-google-sitemap">'.__('Strictly Google Sitemap','strictlyautotags').'</a>
 							<p>'.__('Strictly Google Sitemap is a feature rich Wordpress plugin built for sites requiring high performance. Not only does it use a tiny number of database queries compared to other plugins it uses less memory and was designed specifically for under performing or low spec systems. As well as offering all the features of other sitemap plugins it brings all those missing features such as sitemap index files, XML validation, scheduled builds, configuration analysis and SEO reports.','strictlyautotags').'</p>
 						</li>
@@ -1881,8 +2599,8 @@ class StrictlyAutoTags{
 						<li><a href="http://www.strictly-software.com/online-tools">'.__('Strictly Online Tools','strictlyautotags').'</a>
 							<p>'.__('Strictly Online Tools is a suite of free online tools I have developed which include encoders, unpackers, translators, compressors, scanners and much more.','strictlyautotags').'</p>
 						</li>
-						<li><a href="http://www.hattrickheaven.com">'.__('Hattrick Heaven','strictlyautotags').'</a>
-							<p>'.__('If you like football then this site is for you. Get the latest football news, scores and league standings from around the web on one site. All content is crawled, scraped and reformated in real time so there is no need to leave the site when following news links. Check it out for yourself. ','strictlyautotags').'</p>
+						<li><a href="http://www.ukhorseracingtipster.com">'.__('UK Horse Racing Tipster','strictlyautotags').'</a>
+							<p>'.__('If you like Horse Racing and earning BIG profits from betting on it then this is the site for you. Get the latest racing news, free tips by email and cheap membership by week, month and year for premium high ROI tips that have been proven again and again!','strictlyautotags').'</p>
 						</li>
 						<li><a href="http://www.fromthestables.com">'.__('From The Stables','strictlyautotags').'</a>
 							<p>'.__('If you like horse racing or betting and want that extra edge when using Betfair then this site is for you. It\'s a members only site that gives you inside information straight from the UK\'s top racing trainers every day. We reguarly post up to 5 winners a day and our members have won thousands since we started in 2010.','StrictlySystemCheck').'</p>
