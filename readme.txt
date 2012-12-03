@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.4.2
-Stable tag: 2.8
+Stable tag: 2.8.1
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -177,3 +177,5 @@ that are currently saved as post tags. This should help the problem where people
 * Added new re-bold and re-deeplink posts function for SEO purposes
 * Added the ability to tag custom posts
 
+= 2.8.1 =
+* Remove old call to debug statement in RemoveBoldAndLinks (I use it in other plugins which is why it didn't error for me)

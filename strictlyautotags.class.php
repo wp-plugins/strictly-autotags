@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.8
+ * Version: 2.8.1
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.8";
+	protected $version = "2.8.1";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -496,7 +496,7 @@ class StrictlyAutoTags{
 		// as we now put classes on the tags its easier to find and replace
 		set_time_limit(200);
 
-		ShowDebug("b4 replace len is " . strlen($content));
+		ShowDebugAutoTag("b4 replace len is " . strlen($content));
 
 		$content = preg_replace("@(<strong class='StrictlyAutoTagBold'>)([\s\S]+?)(</strong>)@","$2",$content);
 
@@ -504,7 +504,7 @@ class StrictlyAutoTags{
 
 		$content = preg_replace("@(<a class=\"StrictlyAutoTagAnchor\"[^>]+?>)([\s\S]+?)(</a>)@","$2",$content);
 
-		ShowDebug("after 2nd replace len is " . strlen($content));
+		ShowDebugAutoTag("after 2nd replace len is " . strlen($content));
 
 		return $content;
 
