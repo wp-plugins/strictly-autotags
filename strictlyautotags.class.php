@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.8.1
+ * Version: 2.8.2
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.8.1";
+	protected $version = "2.8.2";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -528,6 +528,9 @@ class StrictlyAutoTags{
 
 			ShowDebugAutoTag("lets loop through our post tags");
 
+			// replace
+			$content = str_replace("'","##Q##",$content);
+
 			//loop and bold unless they are already inside a bold tag
 			foreach($tags as $tag){
 
@@ -569,6 +572,9 @@ class StrictlyAutoTags{
 			}
 
 		}
+
+		// replace
+		$content = str_replace("'","##Q##",$content);
 
 		ShowDebugAutoTag("look at how it would appear");
 		
@@ -636,6 +642,10 @@ class StrictlyAutoTags{
 			ShowDebugAutoTag("loop through array and deeplink");
 
 			$lasttag = $lastslug = "";
+
+			// replace
+			$content = str_replace("'","##Q##",$content);
+
 			//loop and bold unless they are already inside a bold tag
 			foreach($this->deeplinkarray as $tag){
 
@@ -710,10 +720,11 @@ class StrictlyAutoTags{
 						// remove any anchor tags that are now in other anchors
 						$content = preg_replace("@(<(a)[^>]*>[^<]*?)(<a class=\"StrictlyAutoTagAnchor\"[^>]+?>" .  preg_quote($tag->name) . "<\/a>)(.*?<\/?\\2>)@i","$1{$tag->name}$4",$content);
 
-					}
-
-					
+					}					
 				}
+				
+				// put placeholder back
+				$content = str_replace("##Q##","'",$content);
 			}
 
 		}
