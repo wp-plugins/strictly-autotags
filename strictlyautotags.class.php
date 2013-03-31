@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.8.2
+ * Version: 2.8.3
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -237,6 +237,14 @@ class StrictlyAutoTags{
 	*/
 	protected $skip_tagged_posts;
 	
+	/**
+	* Array of stored titles, src, alt, href that would cause issues with a nested link/bold tag inside it
+	*
+	* @access protected
+	* @var array
+	*/
+	protected $storage;
+
 	public function __construct(){
 
 		// add any new options for users upgrading the plugin
@@ -274,9 +282,7 @@ class StrictlyAutoTags{
 		
 		// set a function to run whenever posts are saved that will call our AutoTag function
 		add_action('save_post'				, array(&$this, 'SaveAutoTags'),1);
-		//add_action('publish_post'			, array(&$this, 'SaveAutoTags'),1);
-		//add_action('post_syndicated_item'	, array(&$this, 'SaveAutoTags'),1);
-
+		
 
 	}
 
@@ -371,10 +377,17 @@ class StrictlyAutoTags{
 
 				if($this->boldtaggedwords || $this->taglinks){
 
+
+					// store href/alt/src/title attributes that would cause issues with nested tags
+					$newcontent = $this->StoreContent($newcontent, "STORE");
+
 					ShowDebugAutoTag("call bold or deeplink tags");
 
 					if($this->boldtaggedwords){
 						// help SEO by bolding our tags
+
+						ShowDebugAutoTag("lets auto bold tags");
+
 						$newcontent = $this->AutoBold($newcontent,$posttags);
 					}
 					
@@ -387,8 +400,13 @@ class StrictlyAutoTags{
 
 						// help SEO by deeplinking our tags
 						$newcontent = $this->AutoLink($newcontent,$posttags);
+
+						ShowDebugAutoTag("after auto link content = $newcontent");
 					}
 
+					ShowDebugAutoTag("put stored content back in");
+
+					$newcontent = $this->StoreContent($newcontent, "RETURN");
 
 					ShowDebugAutoTag("our new content is === " . $newcontent);
 
@@ -528,9 +546,7 @@ class StrictlyAutoTags{
 
 			ShowDebugAutoTag("lets loop through our post tags");
 
-			// replace
-			$content = str_replace("'","##Q##",$content);
-
+			
 			//loop and bold unless they are already inside a bold tag
 			foreach($tags as $tag){
 
@@ -569,17 +585,13 @@ class StrictlyAutoTags{
 				$content = preg_replace("@(<(h[1-6]|strong|b|em|i|a)[^>]*>[^<]*?)(<strong class='StrictlyAutoTagBold'>" .  preg_quote($tag) . "<\/strong>)(.*?<\/?\\2>)@i","$1{$tag}$4",$content);
 
 				
-			}
 
+			}
+			
 		}
 
-		// replace
-		$content = str_replace("'","##Q##",$content);
 
-		ShowDebugAutoTag("look at how it would appear");
-		
-
-		ShowDebugAutoTag("return $content");
+		ShowDebugAutoTag("BOLDED RETURNS $content");
 
 		return $content;
 
@@ -643,9 +655,7 @@ class StrictlyAutoTags{
 
 			$lasttag = $lastslug = "";
 
-			// replace
-			$content = str_replace("'","##Q##",$content);
-
+			
 			//loop and bold unless they are already inside a bold tag
 			foreach($this->deeplinkarray as $tag){
 
@@ -673,35 +683,38 @@ class StrictlyAutoTags{
 					$actualurl   = preg_replace('@%post_tag%@i',$tag->slug,$actualurl);
 
 
-					//ShowDebugAutoTag("did we already bold = " . intval($this->boldtaggedwords));
+					ShowDebugAutoTag("did we already bold = " . intval($this->boldtaggedwords));
 
 					// as this runs after auto bold if thats enabled i can just use those markers as replacements
-					if($this->boldtaggedwords){
+					if($this->boldtaggedwords){						
 
+						$link = '<a class="StrictlyAutoTagAnchor" href="' . $actualurl . ' title="' . $actualtitle . '">' . $tag->name . '</a>';
+
+						$regex = "@<strong class='StrictlyAutoTagBold'>" . preg_quote($tag->name) . "</strong>@i";						
 						
-						$link = "<a class=\"StrictlyAutoTagAnchor\" href=\"" . $actualurl . "\" title=\"" . $actualtitle . "\" >" . $tag->name . "</a>";
-
-
-						$regex = "@<strong class='StrictlyAutoTagBold'>" . preg_quote($tag->name) . "<\/strong>@";
-
 						// wrap tags in anchors and keep the formatting e.g dont upper case if the tag is lowercase as it might be inside
 						// an href or src which might screw it up
 						$content = preg_replace($regex,$link,$content,$this->maxtagstolink);
 
 					}else{
 
+						ShowDebugAutoTag("no bolding so just link for first time");
+
 						$origcontent = $content;
 
 						// instead of doing negative lookaheads and entering a world of doom match and then clean	
 						// easier to do a positive match than a negative especially with nested matches
-						$link = "<a class=\"StrictlyAutoTagAnchor\" href=\"" . $actualurl  . "\" title=\"" . $actualtitle . "\" >$1</a>";
+
+						$link = '<a class="StrictlyAutoTagAnchor" href="' . $actualurl . ' title="' . $actualtitle . '">$1</a>';
 
 						
+						ShowDebugAutoTag("replace " . preg_quote($tag->name) . " in content");
 
 						// wrap tags in anchors and keep the formatting e.g dont upper case if the tag is lowercase as it might be inside
 						// an href or src which might screw it up
 						$content = preg_replace("@\b(" . preg_quote($tag->name) . ")\b@",$link,$content,$this->maxtagstolink);
 
+						ShowDebugAutoTag("1 len is now " . strlen($content));
 
 						// remove anchor tags that have been put inside attributes e.g <a href="http://www.<a href="http://www.mysite.com/tags/MNSBC">MSNBC</a>>MSNBC</a>.com">	
 						// this can be a bit of killer on large pieces of content so if its causing problems then turn deeplinking off
@@ -715,17 +728,20 @@ class StrictlyAutoTags{
 									return $res;')
 								,$content);
 						
-						
+						ShowDebugAutoTag("2 after nested remove len is now " . strlen($content));
 
 						// remove any anchor tags that are now in other anchors
 						$content = preg_replace("@(<(a)[^>]*>[^<]*?)(<a class=\"StrictlyAutoTagAnchor\"[^>]+?>" .  preg_quote($tag->name) . "<\/a>)(.*?<\/?\\2>)@i","$1{$tag->name}$4",$content);
 
+						ShowDebugAutoTag("3 after nested anchor remove len is now " . strlen($content));
+
 					}					
 				}
 				
-				// put placeholder back
-				$content = str_replace("##Q##","'",$content);
+				
 			}
+
+			ShowDebugAutoTag("after put ##Q## placeholders back len is now " . strlen($content));
 
 		}
 
@@ -735,6 +751,60 @@ class StrictlyAutoTags{
 
 	}
 	
+	protected function StoreContent($content, $dir)
+	{
+		ShowDebugAutoTag("IN StoreContent direction = $dir");
+		
+		if($dir == "STORE")
+		{
+			preg_match_all('@((?:title|src|href|alt)\s?=\s?[\'"])([\s\S]+?)([\'"])@',$content,$matches,PREG_SET_ORDER);
+
+			if($matches)
+			{
+				$x = 0;
+				foreach($matches as $match)
+				{
+					$word = $match[0];
+
+
+					ShowDebugAutoTag("store match $word");
+
+					$this->storage[] = $word;
+
+					$content = str_replace($word, "##M".$x."##", $content);
+					$x++;
+				}
+			}
+
+			ShowDebugAutoTag($href);
+
+		}else{
+			
+			ShowDebugAutoTag("put them back in");
+
+			if(count($this->storage) > 0)
+			{
+				ShowDebugAutoTag("we have " . count($this->storage) . " stored bits to put back");
+
+				$x = 0;
+				foreach($this->storage as $match)
+				{
+					ShowDebugAutoTag("replace match $match[0]");
+
+					$word = $match;
+					$content = str_replace( "##M".$x."##",$word, $content);
+					$x++;
+				}
+			}
+			
+			ShowDebugAutoTag("after put content back");
+		}
+
+		ShowDebugAutoTag("RETURN CONTENT == $content");
+
+		return $content;
+	}
+
 				
 	/**
 	 * Removes any noise words from the system if they are already used as post tags
@@ -2152,7 +2222,7 @@ class StrictlyAutoTags{
 				$noisewords = strtolower($noisewords);
 
 				// make sure the noise words don't start or end with pipes
-				if( preg_match("/^([-a-z'1-9]+\|[-a-z'1-9]*)+$/",$noisewords)){	
+				if( preg_match("@^([-a-z'0-9 ]+\|[-a-z'0-9 ]*)+$@i",$noisewords)){
 					$options['noisewords']	= $noisewords;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -2181,7 +2251,7 @@ class StrictlyAutoTags{
 				$noisewords_case_sensitive = $noisewords_case_sensitive;
 
 				// make sure the noise words don't start or end with pipes
-				if( preg_match("/^([-a-z'1-9 ]+\|[-a-z'1-9 ]*)+$/i",$noisewords_case_sensitive)){	
+				if( preg_match("@^([-a-z'0-9 ]+\|[-a-z'0-9 ]*)+$@i",$noisewords_case_sensitive)){
 					$options['noisewords_case_sensitive']	= $noisewords_case_sensitive;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -2598,8 +2668,8 @@ class StrictlyAutoTags{
 				<div class="inside">				
 					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
 					<ul>
-						<li><a href="http://www.strictly-software.com/plugins/strictly-google-sitemap">'.__('Strictly Google Sitemap','strictlyautotags').'</a>
-							<p>'.__('Strictly Google Sitemap is a feature rich Wordpress plugin built for sites requiring high performance. Not only does it use a tiny number of database queries compared to other plugins it uses less memory and was designed specifically for under performing or low spec systems. As well as offering all the features of other sitemap plugins it brings all those missing features such as sitemap index files, XML validation, scheduled builds, configuration analysis and SEO reports.','strictlyautotags').'</p>
+						<li><a href="http://www.strictly-software.com/applications/twitter-hash-tag-hunter">'.__('Strictly Twitter Hash Tag Hunter','strictlyautotags').'</a>
+							<p>'.__('Strictly Twitter Hash Tag Hunter is a windows application that lets you find out the hash tags and followers you should be tweeting to. Used mostly with my Tweetbot it is great for new site owners to find out what hash tags people use for the search terms and keywords their site ranks for and then easily find the key Tweeters using those hash tags. With proxy and timeout features this multi threaded application is great for SEO and advertising your website.','strictlyautotags').'</p>
 						</li>
 						<li><a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">'.__('Strictly Tweetbot','strictlyautotags').'</a>
 							<p>'.__('Strictly Tweetbot is a Wordpress plugin that allows you to automatically post tweets to multiple accounts or multiple tweets to the same account whenever a post is added to your site. Features include: Content Analysis, Tweet formatting and the ability to use tags or categories as hash tags, OAuth PIN code authorisation and Tweet Reports.','strictlyautotags').'</p>

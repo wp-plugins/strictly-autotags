@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.4.2
-Stable tag: 2.8.2
+Stable tag: 2.8.3
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -182,3 +182,9 @@ that are currently saved as post tags. This should help the problem where people
 
 = 2.8.2 =
 * Fixed bug that sometimes caused nested deeplinking and bolding within HTML attributes by using placeholders to prevent reverse lookups
+
+= 2.8.3 =
+* Rewrote bug fix that was causing nested tags within certain html attributes like alt, title, src and href so that the wording is stored and replaced after bolding or deep linking.
+* Removed placeholders for quotes
+* Fixed bug that prevented noise words with the digit 0 from being saved.
+* Removed some code
