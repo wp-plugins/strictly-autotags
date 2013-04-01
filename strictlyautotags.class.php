@@ -753,6 +753,9 @@ class StrictlyAutoTags{
 	
 	protected function StoreContent($content, $dir)
 	{
+		// works on my PC but not on Wordpress?
+		return $content;
+
 		ShowDebugAutoTag("IN StoreContent direction = $dir");
 		
 		if($dir == "STORE")
