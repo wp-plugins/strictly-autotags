@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.8.3
+ * Version: 2.8.4
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.8.2";
+	protected $version = "2.8.4";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -282,7 +282,9 @@ class StrictlyAutoTags{
 		
 		// set a function to run whenever posts are saved that will call our AutoTag function
 		add_action('save_post'				, array(&$this, 'SaveAutoTags'),1);
-		
+		//add_action('publish_post'			, array(&$this, 'SaveAutoTags'),1);
+		//add_action('post_syndicated_item'	, array(&$this, 'SaveAutoTags'),1);
+
 
 	}
 
@@ -590,6 +592,10 @@ class StrictlyAutoTags{
 			
 		}
 
+		
+
+		ShowDebugAutoTag("look at how it would appear");
+		
 
 		ShowDebugAutoTag("BOLDED RETURNS $content");
 
@@ -633,7 +639,7 @@ class StrictlyAutoTags{
 			// store whether trailing slashes need to be added 
 			$this->addtrailingslash = $wp_rewrite->use_trailing_slashes;
 
-			ShowDebugAutoTag("tag permalink structure is $taglink");
+			ShowDebugAutoTag("tag permalink structure is $taglink do we add trailing slashes = " . intval($wp_rewrite->use_trailing_slashes));
 
 			// ensure the start of the tag rewrite url has a / as for some reason 3.0+ stopped adding it
 			if(!empty($taglink)){
@@ -644,7 +650,10 @@ class StrictlyAutoTags{
 
 
 			// set tag placeholder			
-			$tagplaceholder = ($this->addtrailingslash) ? $taglink ."/" : $taglink;
+			$tagplaceholder = ($this->addtrailingslash) ? ( $taglink ."/") : $taglink;
+
+			ShowDebugAutoTag("tag placeholder is $tagplaceholder");
+
 			$siteurl	= untrailingslashit(get_option('siteurl'));
 
 			ShowDebugAutoTag("site url is $siteurl");
@@ -679,16 +688,20 @@ class StrictlyAutoTags{
 					// handle old and new
 					$actualtitle = preg_replace("@%tag%@i",$tag->name,$this->deeplinktitle);
 					$actualtitle = preg_replace("@%post_tag%@i",$tag->name,$actualtitle);
-					$actualurl   = $siteurl . preg_replace('@%tag%@i',$tag->slug,$taglink);
+
+					ShowDebugAutoTag("replace %tag% with " . $tag->slug . " in " . $tagplaceholder);
+
+					$actualurl   = $siteurl . preg_replace('@%tag%@i',$tag->slug,$tagplaceholder);
 					$actualurl   = preg_replace('@%post_tag%@i',$tag->slug,$actualurl);
 
+					ShowDebugAutoTag("actual url is now $actualurl");
 
 					ShowDebugAutoTag("did we already bold = " . intval($this->boldtaggedwords));
 
 					// as this runs after auto bold if thats enabled i can just use those markers as replacements
 					if($this->boldtaggedwords){						
 
-						$link = '<a class="StrictlyAutoTagAnchor" href="' . $actualurl . ' title="' . $actualtitle . '">' . $tag->name . '</a>';
+						$link = '<a class="StrictlyAutoTagAnchor" href="' . $actualurl . '" title="' . $actualtitle . '">' . $tag->name . '</a>';
 
 						$regex = "@<strong class='StrictlyAutoTagBold'>" . preg_quote($tag->name) . "</strong>@i";						
 						
@@ -705,7 +718,7 @@ class StrictlyAutoTags{
 						// instead of doing negative lookaheads and entering a world of doom match and then clean	
 						// easier to do a positive match than a negative especially with nested matches
 
-						$link = '<a class="StrictlyAutoTagAnchor" href="' . $actualurl . ' title="' . $actualtitle . '">$1</a>';
+						$link = '<a class="StrictlyAutoTagAnchor" href="' . $actualurl . '" title="' . $actualtitle . '">$1</a>';
 
 						
 						ShowDebugAutoTag("replace " . preg_quote($tag->name) . " in content");
@@ -753,22 +766,41 @@ class StrictlyAutoTags{
 	
 	protected function StoreContent($content, $dir)
 	{
-		// works on my PC but not on Wordpress?
-		return $content;
-
+		// works on my test page on my PC but not on Wordpress why? I have no idea?
+		//return $content;
+		
 		ShowDebugAutoTag("IN StoreContent direction = $dir");
 		
 		if($dir == "STORE")
 		{
-			preg_match_all('@((?:title|src|href|alt)\s?=\s?[\'"])([\s\S]+?)([\'"])@',$content,$matches,PREG_SET_ORDER);
+			preg_match_all('@((?:title|src|href|alt)\s?=\s?)(")([\s\S]*?)(")@',$content,$matches,PREG_SET_ORDER);
+			$x = 0;
 
 			if($matches)
 			{
-				$x = 0;
+				
 				foreach($matches as $match)
 				{
 					$word = $match[0];
 
+
+					ShowDebugAutoTag("store match $word");
+
+					$this->storage[] = $word;
+
+					$content = str_replace($word, "##M".$x."##", $content);
+					$x++;
+				}
+			}
+
+			preg_match_all("@((?:title|src|href|alt)\s?=\s?)(')([\s\S]*?)(')@",$content,$matches,PREG_SET_ORDER);
+			
+			if($matches)
+			{
+				
+				foreach($matches as $match)
+				{
+					$word = $match[0];
 
 					ShowDebugAutoTag("store match $word");
 
@@ -792,11 +824,14 @@ class StrictlyAutoTags{
 				$x = 0;
 				foreach($this->storage as $match)
 				{
-					ShowDebugAutoTag("replace match $match[0]");
+					
+					ShowDebugAutoTag("put $match back in ##M".$x."##");
+			
 
-					$word = $match;
-					$content = str_replace( "##M".$x."##",$word, $content);
+					$content = str_replace( "##M".$x."##",$match, $content);
 					$x++;
+
+					ShowDebugAutoTag("now content = $content");
 				}
 			}
 			
@@ -2671,8 +2706,8 @@ class StrictlyAutoTags{
 				<div class="inside">				
 					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
 					<ul>
-						<li><a href="http://www.strictly-software.com/applications/twitter-hash-tag-hunter">'.__('Strictly Twitter Hash Tag Hunter','strictlyautotags').'</a>
-							<p>'.__('Strictly Twitter Hash Tag Hunter is a windows application that lets you find out the hash tags and followers you should be tweeting to. Used mostly with my Tweetbot it is great for new site owners to find out what hash tags people use for the search terms and keywords their site ranks for and then easily find the key Tweeters using those hash tags. With proxy and timeout features this multi threaded application is great for SEO and advertising your website.','strictlyautotags').'</p>
+						<li><a href="http://www.strictly-software.com/plugins/strictly-google-sitemap">'.__('Strictly Google Sitemap','strictlyautotags').'</a>
+							<p>'.__('Strictly Google Sitemap is a feature rich Wordpress plugin built for sites requiring high performance. Not only does it use a tiny number of database queries compared to other plugins it uses less memory and was designed specifically for under performing or low spec systems. As well as offering all the features of other sitemap plugins it brings all those missing features such as sitemap index files, XML validation, scheduled builds, configuration analysis and SEO reports.','strictlyautotags').'</p>
 						</li>
 						<li><a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">'.__('Strictly Tweetbot','strictlyautotags').'</a>
 							<p>'.__('Strictly Tweetbot is a Wordpress plugin that allows you to automatically post tweets to multiple accounts or multiple tweets to the same account whenever a post is added to your site. Features include: Content Analysis, Tweet formatting and the ability to use tags or categories as hash tags, OAuth PIN code authorisation and Tweet Reports.','strictlyautotags').'</p>

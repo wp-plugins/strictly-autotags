@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.4.2
-Stable tag: 2.8.3
+Stable tag: 2.8.4
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -188,3 +188,8 @@ that are currently saved as post tags. This should help the problem where people
 * Removed placeholders for quotes
 * Fixed bug that prevented noise words with the digit 0 from being saved.
 * Removed some code
+
+= 2.8.4 =
+* Fixed bug that was breaking new code with href="/blah title=
+* Fixed code that wasn't adding in the trailing slash to the permalink if it was set for site
+* Split code to store href/src/title/alt into 2 one for single quotes ' and one for double "
