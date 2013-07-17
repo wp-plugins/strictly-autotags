@@ -773,6 +773,12 @@ class StrictlyAutoTags{
 		
 		if($dir == "STORE")
 		{
+			// kill any existing array contents which might be left around due to Wordpress keeping the class in memory
+			// between page loads/imports/edits or whatever which "may" cause the values of a previous article stored in the 
+			// content hash to be used for another article (not proven just guessing)
+			
+			unset($this->storage);
+			
 			preg_match_all('@((?:title|src|href|alt)\s?=\s?)(")([\s\S]*?)(")@',$content,$matches,PREG_SET_ORDER);
 			$x = 0;
 
@@ -836,6 +842,9 @@ class StrictlyAutoTags{
 			}
 			
 			ShowDebugAutoTag("after put content back");
+
+			// clean out array again just to be sure!
+			unset($this->storage);
 		}
 
 		ShowDebugAutoTag("RETURN CONTENT == $content");
@@ -2737,6 +2746,23 @@ class StrictlyAutoTags{
 
 class StrictlyAutoTagControl{
 
+	
+	private static $StrictlyAutoTag;
+
+
+	/**
+	 * Init is called on every page not just when the plugin is activated and creates an instance of my strictly autotag class if it doesn't already exist
+	 *
+	 */
+	public static function Init(){
+		
+		if(!isset(StrictlyAutoTagControl::$StrictlyAutoTag)){
+			// create class and all the good stuff that comes with it
+			StrictlyAutoTagControl::$StrictlyAutoTag = new StrictlyAutoTags(); 
+		}
+
+	}
+	
 	/**
 	 * Called when plugin is deactivated and removes all the settings related to the plugin
 	 *
@@ -2801,7 +2827,9 @@ register_activation_hook(__FILE__, 'StrictlyAutoTagControl::Activate');
 // register my deactivate hook to ensure when the plugin is deactivated everything is cleaned up
 register_deactivation_hook(__FILE__, 'StrictlyAutoTagControl::Deactivate');
 
+add_action('init', 'StrictlyAutoTagControl::Init');
+
 // create auto tag object
-$strictlyautotags = new StrictlyAutoTags();
+//$strictlyautotags = new StrictlyAutoTags();
 
 ?>

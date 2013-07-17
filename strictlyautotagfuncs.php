@@ -3,7 +3,7 @@
 Compatibility functions for the strictlyautotags.class.php plugin 
 */
 
-//error_reporting(E_ERROR);
+error_reporting(E_ERROR);
 
 // set up constants used by the AutoTag method
 if(!defined('AUTOTAG_BOTH')){
@@ -33,8 +33,8 @@ if(!function_exists('me')){
 		}
 		
 		// put your IP here
-		if($ip == "81.333.22.86"){
-			return true;
+		if($ip == "86.4.248.185"){
+			return false;
 		}else{
 			return false;
 		}
@@ -48,7 +48,7 @@ if(!function_exists('ShowDebugAutoTag')){
 	// if the DEBUG constant hasn't been set then create it and turn it off
 	if(!defined('DEBUGAUTOTAG')){
 		if(me()){
-			define('DEBUGAUTOTAG',false);
+			define('DEBUGAUTOTAG',true);
 		}else{
 			define('DEBUGAUTOTAG',false);
 		}

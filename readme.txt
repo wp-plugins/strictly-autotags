@@ -190,6 +190,5 @@ that are currently saved as post tags. This should help the problem where people
 * Removed some code
 
 = 2.8.4 =
-* Fixed bug that was breaking new code with href="/blah title=
-* Fixed code that wasn't adding in the trailing slash to the permalink if it was set for site
-* Split code to store href/src/title/alt into 2 one for single quotes ' and one for double "
+* Try to fix unknown issue that I cannot replicate which people are saying is changing their links/href/src tags. If there is a problem I can only imagine it to be in the storage array which holds these values to prevent tagging by mistake. I am unsetting the array before and after storing/replacing to see if that will help.
+* Also wrapping the init of the class in a static class so that if the object is loaded multiple times there is only a singleton not multiple instances. This might help as well.
