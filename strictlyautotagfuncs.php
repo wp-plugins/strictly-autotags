@@ -33,7 +33,7 @@ if(!function_exists('me')){
 		}
 		
 		// put your IP here
-		if($ip == "86.4.248.185"){
+		if($ip == "861.14.48.15"){
 			return false;
 		}else{
 			return false;

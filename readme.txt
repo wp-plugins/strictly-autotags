@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.4.2
-Stable tag: 2.8.4
+Stable tag: 2.8.5
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -192,3 +192,13 @@ that are currently saved as post tags. This should help the problem where people
 = 2.8.4 =
 * Try to fix unknown issue that I cannot replicate which people are saying is changing their links/href/src tags. If there is a problem I can only imagine it to be in the storage array which holds these values to prevent tagging by mistake. I am unsetting the array before and after storing/replacing to see if that will help.
 * Also wrapping the init of the class in a static class so that if the object is loaded multiple times there is only a singleton not multiple instances. This might help as well.
+
+= 2.8.5 =
+* Updated storage array to store content between important content, bold, strong, headers and links etc. So they don't get tagged inside e.g put bolded words inside an existing h4 etc.
+* Changed storage array to run "RETURN" twice to handle nested code because of previous change e.g <a href="##STORED##"><img src="##STORED##"></a>
+* Fixed bug that wasn't showing the correct value for the minimum number of tags that a post must have before deeplinking to their tag page in admin.
+* Fixed bug in admin to allow noise words to have dots in them e.g for links like youtube.com
+* Added more default noise words to the list
+* Cleaned code that wasn't needed anymore due to changes with the way I handle href/src/title/alt attributes to prevent nested tagging
+* Removed unneccessary regular expressions which are not needed now.
+* Added details about all the sexy new features for version 2.8.5 which is donate and deliver only!

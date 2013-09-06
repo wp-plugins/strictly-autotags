@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.8.4
+ * Version: 2.8.5
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.8.4";
+	protected $version = "2.8.5";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -107,7 +107,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $defaultnoisewords = "about|after|a|all|also|an|and|another|any|are|as|at|be|because|been|before|being|between|both|but|by|came|can|come|could|did|do|each|even|for|from|further|furthermore|get|got|had|has|have|he|her|here|hi|him|himself|how|however|i|if|in|indeed|into|is|its|just|like|made|many|may|me|might|more|moreover|most|much|must|my|never|not|now|of|on|only|or|other|our|out|over|put|said|same|see|she|should|since|some|still|such|take|than|that|the|their|them|then|there|therefore|these|they|this|those|through|thus|to|too|under|up|very|was|way|we|well|were|what|when|where|which|while|will|why|with|would|you|your"; 
+	protected $defaultnoisewords = "about|after|a|all|also|an|and|another|any|are|as|at|be|because|been|before|being|between|both|but|by|came|can|come|could|did|do|does|each|even|for|from|further|furthermore|get|gets|got|had|has|have|he|her|here|hi|him|himself|how|hows|however|i|if|in|indeed|into|is|its|just|like|made|many|may|me|might|more|moreover|most|much|must|my|never|no|not|now|of|on|only|or|other|our|out|over|put|puts|says|said|same|see|she|should|since|some|still|such|take|than|that|the|their|them|then|there|theres|therefore|these|they|this|those|through|thus|to|too|under|up|very|was|way|we|well|were|what|when|where|which|while|will|why|with|would|you|your"; 
 
 
 	/**
@@ -344,8 +344,7 @@ class StrictlyAutoTags{
 											c.taxonomy = 'post_tag'											
 											AND  c.count >= %d
 										);",$this->minpoststotaglink);
-
-			// AND slug in('ron-paul','cia','fbi','newt-gingrich')
+			
 
 			ShowDebugAutoTag($sql);
 
@@ -416,17 +415,6 @@ class StrictlyAutoTags{
 
 					ShowDebugAutoTag("SQL is $sql");
 
-					/*
-					// resave content
-					// from what I read all params should be unsanitized so that wordpress can run a prepare itself
-					$r = $wpdb->update(
-					  'posts',
-					  array( 'post_content' => $newcontent ),
-					  array( 'id' => $object->ID )
-					);
-
-					ShowDebugAutoTag("should have been updated rows = " . $r);
-					*/
 
 					$r = $wpdb->query($sql);
 					
@@ -556,37 +544,15 @@ class StrictlyAutoTags{
 
 				// instead of doing negative lookaheads and entering a world of doom match and then clean	
 				// easier to do a positive match than a negative especially with nested matches
-
-				$regex = "@\b(" . preg_quote($tag) . ")\b@";
+				// might want to tag words with dots in e.g msnbc.com
+				$regex = "@\b(" . preg_quote($tag) . ")(\s|\.\s|$)@";
 
 				ShowDebugAutoTag("regex is $regex");
 
 				// wrap tags in strong and keep the formatting e.g dont upper case if the tag is lowercase as it might be inside
 				// an href or src which might screw it up
-				$content = preg_replace($regex,"<strong class='StrictlyAutoTagBold'>$1</strong>",$content);
-
-				
-
-				// remove bold tags that have been put inside attributes e.g <a href="http://www.<strong>MSNBC</strong>.com">	
-				// this can be a bit of killer on large pieces of content so if its causing problems then turn auto bold off
-				// anything that has to do negative lookaheads can kill webservers (see my blog for details) but its a lot better
-				// for me to match first (by bolding) and then clean up by looping through attributes and stripping than trying
-				// to do it all in one negative lookahead regex. I've tried tightening it up and extending the timeout.
-				$content = preg_replace_callback("@(\w+)(=['\"][^'\"]*?)(<strong class='StrictlyAutoTagBold'>)([\s\S]+?)(</strong>)([^'\"]*['\"][/> ])@",
-							create_function(
-							'$matches',			
-							'$res = preg_replace("@<strong class=\'StrictlyAutoTagBold\'>@","",$matches[0] );				
-							$res = preg_replace("@</?strong>@","",$res );					
-							return $res;')
-						,$content);
-				
-				
-				
-
-				// remove any tags that are now in strong that are also inside other "bold" tags
-				$content = preg_replace("@(<(h[1-6]|strong|b|em|i|a)[^>]*>[^<]*?)(<strong class='StrictlyAutoTagBold'>" .  preg_quote($tag) . "<\/strong>)(.*?<\/?\\2>)@i","$1{$tag}$4",$content);
-
-				
+				$content = preg_replace($regex,"<strong class='StrictlyAutoTagBold'>$1</strong>$2",$content);
+			
 
 			}
 			
@@ -621,7 +587,7 @@ class StrictlyAutoTags{
 
 		ShowDebugAutoTag($this->deeplinkarray);
 
-		set_time_limit(200);
+		set_time_limit(0);
 
 		$no =  count($this->deeplinkarray);
 
@@ -673,7 +639,7 @@ class StrictlyAutoTags{
 
 				ShowDebugAutoTag("tag = " . $tag->name . " and slug = " . $tag->slug);
 
-				// we skip any that are nested in tagged links already
+				// we skip any that are nested in tagged links already - shouldnt be anymore with storage!
 				$testreg = "@<a class=\"StrictlyAutoTagAnchor\"[^>]+?>[^<]*?" . preg_quote($tag->name) . "[^<]*?</a>@";
 
 				if(preg_match($testreg,$content)){
@@ -728,33 +694,14 @@ class StrictlyAutoTags{
 						$content = preg_replace("@\b(" . preg_quote($tag->name) . ")\b@",$link,$content,$this->maxtagstolink);
 
 						ShowDebugAutoTag("1 len is now " . strlen($content));
-
-						// remove anchor tags that have been put inside attributes e.g <a href="http://www.<a href="http://www.mysite.com/tags/MNSBC">MSNBC</a>>MSNBC</a>.com">	
-						// this can be a bit of killer on large pieces of content so if its causing problems then turn deeplinking off
-						// anything that has to do negative lookaheads can kill webservers (see my blog for details) but its a lot better
-						// for me to match first (by linking) and then clean up by looping through attributes and stripping than trying
-						// to do it all in one negative lookahead regex. I've tried tightening it up and extending the timeout.
-						$content = preg_replace_callback("@(\w+)(=['\"][^'\"]*?)(<a class=\"StrictlyAutoTagAnchor\" [^>]+?>)([\s\S]+?)(</a>)([^'\"]*['\"][/> ])@",
-									create_function(
-									'$matches',					
-									'$res = preg_replace("@<a [^>]+?>[\s\S]+?</a>@","",$matches[0] );
-									return $res;')
-								,$content);
 						
-						ShowDebugAutoTag("2 after nested remove len is now " . strlen($content));
-
-						// remove any anchor tags that are now in other anchors
-						$content = preg_replace("@(<(a)[^>]*>[^<]*?)(<a class=\"StrictlyAutoTagAnchor\"[^>]+?>" .  preg_quote($tag->name) . "<\/a>)(.*?<\/?\\2>)@i","$1{$tag->name}$4",$content);
-
-						ShowDebugAutoTag("3 after nested anchor remove len is now " . strlen($content));
-
 					}					
 				}
 				
 				
 			}
 
-			ShowDebugAutoTag("after put ##Q## placeholders back len is now " . strlen($content));
+			//ShowDebugAutoTag("after put ##Q## placeholders back len is now " . strlen($content));
 
 		}
 
@@ -817,7 +764,30 @@ class StrictlyAutoTags{
 				}
 			}
 
-			ShowDebugAutoTag($href);
+			ShowDebugAutoTag("store <strong><h4> etc");
+
+			// store stuff already in <a> <strong> <h4> etc
+			preg_match_all("@(<(h[1-6]|strong|a|b|i|em).*?>)([\s\S]*?)(<\/\\2>)@i",$content,$matches,PREG_SET_ORDER);
+			
+			if($matches)
+			{
+				ShowDebugAutoTag("got matches");
+
+				foreach($matches as $match)
+				{
+					$word = $match[0];
+
+					ShowDebugAutoTag("store TAG $word");
+
+					$this->storage[] = $word;
+
+					$content = str_replace($word, "##M".$x."##", $content);
+					$x++;
+				}
+			}
+
+
+			ShowDebugAutoTag($this->storage);
 
 		}else{
 			
@@ -837,7 +807,20 @@ class StrictlyAutoTags{
 					$content = str_replace( "##M".$x."##",$match, $content);
 					$x++;
 
-					ShowDebugAutoTag("now content = $content");
+					//ShowDebugAutoTag("now content = $content");
+				}
+
+				$x = 0;
+				foreach($this->storage as $match)
+				{
+					
+					ShowDebugAutoTag("put $match back in ##M".$x."##");
+			
+
+					$content = str_replace( "##M".$x."##",$match, $content);
+					$x++;
+
+					//ShowDebugAutoTag("now content = $content");
 				}
 			}
 			
@@ -2268,8 +2251,8 @@ class StrictlyAutoTags{
 			}else{
 				$noisewords = strtolower($noisewords);
 
-				// make sure the noise words don't start or end with pipes
-				if( preg_match("@^([-a-z'0-9 ]+\|[-a-z'0-9 ]*)+$@i",$noisewords)){
+				// make sure the noise words don't start or end with pipes				
+				if( preg_match("@^([-a-z'0-9. ]+\|[-a-z'0-9. ]*)+$@i",$noisewords)){
 					$options['noisewords']	= $noisewords;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -2297,8 +2280,8 @@ class StrictlyAutoTags{
 			}else{
 				$noisewords_case_sensitive = $noisewords_case_sensitive;
 
-				// make sure the noise words don't start or end with pipes
-				if( preg_match("@^([-a-z'0-9 ]+\|[-a-z'0-9 ]*)+$@i",$noisewords_case_sensitive)){
+				// make sure the noise words don't start or end with pipes				
+				if( preg_match("@^([-a-z'0-9. ]+\|[-a-z'0-9. ]*)+$@i",$noisewords_case_sensitive)){
 					$options['noisewords_case_sensitive']	= $noisewords_case_sensitive;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -2451,6 +2434,8 @@ class StrictlyAutoTags{
 			echo '<p class="error">' . $errmsg . '</p>';
 		}
 
+		echo "<p><strong>Important Notice about Strictly AutoTags 2.8.6</strong></p><p>As I haven't been getting enough donations to make this plugin worthwhile (apart from my own use) I have decided to <strong>only make future versions available to people who donate &pound;40 (or above). The donation button is at the bottom of this form.</strong></p><p>Version 2.8.6 is out already and in use on my own sites and some of the features include the following:</p><p><ul><li>Ability to set a minimum character length a tag must have before being used as a tag.</li><li>New functions to allow for the tagging of words like al-Qaeda or 1,000 Guineas (as 1000 Guineas).</li><li>The ability to use a basic markup format to match certain words but tag another. For example <strong>[Snowden,NSA,PRISM]=[Police State]</strong> would allow the system to match the words Snowden, Prism or NSA <strong>but</strong> add the tag Police State to the article.</li><li>The ability to convert plain text hrefs and urls into real anchors e.g www.msnbc.com would become a real clickable link.</li></ul></p><p>New features will be added in future including text spinning and other HTML reformatting but from now on versions of this plugin will only be available to people who donate <strong>at least &pound;40 only!</strong></p>";
+
 		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p>';
 
 		$installdate = get_option('strictlyautotag_install_date');
@@ -2473,47 +2458,11 @@ class StrictlyAutoTags{
 			}else{
 				echo '<p>'. sprintf(__('Strictly AutoTags has automatically generated <strong>%s tags</strong> since installation on %s.', 'strictlyautotags'),number_format($tagged),$installdate).'</p>';
 			}
-
-			$rnd = (rand()%10);
-
-			if($rnd == 1 || $rnd == 3){
-
-				echo  __('<p><strong>How much is your time worth?</strong></p><p>Time is money as the famous saying goes and this plugin must be worth at least a small percentage of the time it has saved you. Why not show your appreciation for this plugin which just keeps getting better by making <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652" title="Make a donation">a small donation to help cover my development time?</a>. </p>','strictlyautotags') ;
-
-			}else if(($rnd == 4 || $rnd == 8)  && $tagged > 500){
-
-				echo  __('<p>Plugin developers like myself spend a large portion of their free time to make great code only to give it away for free to people like you. In no other industry does this happen. Can you imagine a builder offering to build an extension on your house for free in the hope that you &quot;might pay him&quot; or hire him later for another job? This is what Wordpress developers do when they give their plugins away for free. If you appreciate our work and want to help us continue to work in this industry
-				then please consider <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652" title="Make a donation">making a donation</a> to help cover my development time. <strong>Any amount no matter how small would be appreciated.</strong> Thanks for your support. . </p>','strictlyautotags') ;
-
-			}else if(($rnd == 0 || $rnd == 2) && $tagged > 1000){
-
-				$n = floor($tagged / 1000);
-
-				echo sprintf(__('<p><strong>This plugin has saved over %d thousand tags for your site!</strong></p><p>This must be worth at least a small donation to show your appreciation. Remember all donations help me to continue to offer plugins like Strictly AutoTags, <a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">Strictly Tweetbot</a>, <a href="http://wordpress.org/extend/plugins/strictly-google-sitemap/">Strictly Google Sitemap</a> and <a href="http://wordpress.org/extend/plugins/strictly-system-check/">Strictly System Check</a> for free! You can show your support for my development by making <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652" title="Make a donation">a donation.</a> Any amount would be appreciated even if its just pennies or cents!</p>','strictlyautotags'),$n);
-			}else{
 			
-				
-				echo '<p>' . __('<strong>Support Strictly Software Wordpress Plugin Development by:</strong>','strictlyautotags') . '</p>
-					 <ul id="supportstrictly">
-						<li><a href="http://www.strictly-software.com/plugins/strictly-auto-tags">Linking to the plugin from your own site or blog so that other people can find out about it.</a></li>
-						<li><a href="http://wordpress.org/extend/plugins/strictly-autotags/">Give the plugin a good rating on Wordpress.org or other websites that discuss Wordpress plugins.</a></li>	
-						<li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652">Pleaae make a donation on PayPal. Any amount no matter how small is appreciated!</a></li>
-					 </ul>';
-			}			
 		}			
-		else
-		{
 		
-			
-			echo '<p>' . __('<strong>You can help Strictly Software Wordpress Plugin Development by:</strong>','strictlyautotags') . '</p>
-				 <ul id="supportstrictly">
-					<li><a href="http://www.strictly-software.com/plugins/strictly-auto-tags">Linking to the plugin from your own site or blog so that other people can find out about it. If you think this plugin is great then please tell the world about it.</a></li>
-					<li><a href="http://wordpress.org/extend/plugins/strictly-autotags/">Give the plugin a good rating on Wordpress.org so that other users download and use it.</a></li>	
-					<li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=6427652">Please make a donation on PayPal. I have spent considerable time developing this plugin for your free use and a donation would show your appreciation for my hard work and allow me to keep on updating this valuable tool with great new features.</a></li>
-				 </ul>';
-		}	
 		
-		echo '<p>'.__('Please remember that this plugin has been developed for the <strong>English language</strong> and will only work with standard English characters e.g A-Z. If you have any problems with the plugin please check that it is not due to UTF-8 characters within the articles you are trying to auto tag.', 'strictlyautotags').'</p>
+		echo '<p><strong>About Strictly AutoTags</strong></p><p>'.__('Please remember that this plugin has been developed for the <strong>English language</strong> and will only work with standard English characters e.g A-Z. If you have any problems with the plugin please check that it is not due to UTF-8 characters within the articles you are trying to auto tag.', 'strictlyautotags').'</p>
 				<ul><li>'.__('Enable Auto Discovery to find new tags.', 'strictlyautotags').'</li>
 				<li>'.__('Suitable words such as Acronyms, Names, Countries and other important keywords will then be identified within the post.', 'strictlyautotags').'</li>
 				<li>'.__('Existing tags will also be used to find relevant tags within the post.', 'strictlyautotags').'</li>
@@ -2657,8 +2606,8 @@ class StrictlyAutoTags{
 
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-minpoststotaglink">'.__('Min no of Tags within a Post to deeplink to.','strictlyautotags').'</label>
-				<input type="text" name="strictlyautotags-minpoststotaglink" id="strictlyautotags-minpoststotaglink" value="' . esc_attr($options['maxtagstolink']) . '" />
-				<span class="notes">'.__('Set the minimum number of tags tbat a post must have before deeplinking to their tag page.', 'strictlyautotags').'</span>
+				<input type="text" name="strictlyautotags-minpoststotaglink" id="strictlyautotags-minpoststotaglink" value="' . esc_attr($options['minpoststotaglink']) . '" />
+				<span class="notes">'.__('Set the minimum number of tags that a post must have before deeplinking to their tag page.', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
@@ -2716,7 +2665,7 @@ class StrictlyAutoTags{
 					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
 					<ul>
 						<li><a href="http://www.strictly-software.com/plugins/strictly-google-sitemap">'.__('Strictly Google Sitemap','strictlyautotags').'</a>
-							<p>'.__('Strictly Google Sitemap is a feature rich Wordpress plugin built for sites requiring high performance. Not only does it use a tiny number of database queries compared to other plugins it uses less memory and was designed specifically for under performing or low spec systems. As well as offering all the features of other sitemap plugins it brings all those missing features such as sitemap index files, XML validation, scheduled builds, configuration analysis and SEO reports.','strictlyautotags').'</p>
+							<p>'.__('Strictly AutoTags 2.8.6 is a sexy new version of this plugin that is only available to people who donate me &pound;40 to my PayPal account. Due to the lack of donations I have received so far I am keeping this new version for people who really want it. Not only does it offer the ability to use equivalent words for tags e.g match <strong>Snowden,NSA,GCHQ</strong> and tag the word <strong>Internet Privacy</strong>, but it has new functions to match words like al-Qaeda or 1,000 Guineas, convert plain text links into real anchors, set a minimum character length a tag must have to be used and also handles the new data-blah attributes to prevent nested tags. If you want it just donate me &pound;40 and I will email you the source code!','strictlyautotags').'</p>
 						</li>
 						<li><a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">'.__('Strictly Tweetbot','strictlyautotags').'</a>
 							<p>'.__('Strictly Tweetbot is a Wordpress plugin that allows you to automatically post tweets to multiple accounts or multiple tweets to the same account whenever a post is added to your site. Features include: Content Analysis, Tweet formatting and the ability to use tags or categories as hash tags, OAuth PIN code authorisation and Tweet Reports.','strictlyautotags').'</p>
