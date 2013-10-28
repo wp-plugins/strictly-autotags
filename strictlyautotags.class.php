@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.8.5
+ * Version: 2.8.7
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.8.5";
+	protected $version = "2.8.7";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -725,8 +725,10 @@ class StrictlyAutoTags{
 			// content hash to be used for another article (not proven just guessing)
 			
 			unset($this->storage);
-			
-			preg_match_all('@((?:title|src|href|alt)\s?=\s?)(")([\s\S]*?)(")@',$content,$matches,PREG_SET_ORDER);
+	
+			// handle new data-title data-description tags
+			preg_match_all('@((?:title|src|href|alt|data-\w+|data-\w+-\w+)\s?=\s?)(")([\s\S]*?)(")@i',$content,$matches,PREG_SET_ORDER);
+		
 			$x = 0;
 
 			if($matches)
@@ -746,7 +748,7 @@ class StrictlyAutoTags{
 				}
 			}
 
-			preg_match_all("@((?:title|src|href|alt)\s?=\s?)(')([\s\S]*?)(')@",$content,$matches,PREG_SET_ORDER);
+			preg_match_all("@((?:title|src|href|alt|data-\w+|data-\w+-\w+)\s?=\s?)(')([\s\S]*?)(')@i",$content,$matches,PREG_SET_ORDER);
 			
 			if($matches)
 			{
@@ -787,6 +789,30 @@ class StrictlyAutoTags{
 			}
 
 
+			ShowDebugAutoTag("match [youtube video]");
+
+			// store wordpress crap [youtube=blah] as convert to links will screw it up
+			// store stuff already in <a> <strong> <h4> etc
+			preg_match_all("@(\[\S+?\s+\S+?\])@",$content,$matches,PREG_SET_ORDER);
+			
+			if($matches)
+			{
+				ShowDebugAutoTag("got matches");
+
+				foreach($matches as $match)
+				{
+					$word = $match[0];
+
+					ShowDebugAutoTag("store TAG $word");
+
+					$this->storage[] = $word;
+
+					$content = str_replace($word, "##M".$x."##", $content);
+					$x++;
+				}
+			}
+
+
 			ShowDebugAutoTag($this->storage);
 
 		}else{
@@ -798,6 +824,8 @@ class StrictlyAutoTags{
 				ShowDebugAutoTag("we have " . count($this->storage) . " stored bits to put back");
 
 				$x = 0;
+				
+				// we loop twice incase we stored a title/alt inside a bold/strong tag so we need to replace both
 				foreach($this->storage as $match)
 				{
 					
@@ -2434,7 +2462,7 @@ class StrictlyAutoTags{
 			echo '<p class="error">' . $errmsg . '</p>';
 		}
 
-		echo "<p><strong>Important Notice about Strictly AutoTags 2.8.6</strong></p><p>As I haven't been getting enough donations to make this plugin worthwhile (apart from my own use) I have decided to <strong>only make future versions available to people who donate &pound;40 (or above). The donation button is at the bottom of this form.</strong></p><p>Version 2.8.6 is out already and in use on my own sites and some of the features include the following:</p><p><ul><li>Ability to set a minimum character length a tag must have before being used as a tag.</li><li>New functions to allow for the tagging of words like al-Qaeda or 1,000 Guineas (as 1000 Guineas).</li><li>The ability to use a basic markup format to match certain words but tag another. For example <strong>[Snowden,NSA,PRISM]=[Police State]</strong> would allow the system to match the words Snowden, Prism or NSA <strong>but</strong> add the tag Police State to the article.</li><li>The ability to convert plain text hrefs and urls into real anchors e.g www.msnbc.com would become a real clickable link.</li></ul></p><p>New features will be added in future including text spinning and other HTML reformatting but from now on versions of this plugin will only be available to people who donate <strong>at least &pound;40 only!</strong></p>";
+		echo "<p><strong>Important Notice about Strictly AutoTags 2.8.6</strong></p><p>As I haven't been getting enough donations to make this plugin worthwhile (apart from my own use) I have decided to <strong>only make future versions available to people who donate &pound;40 (or above). The donation button is at the bottom of this form.</strong></p><p>Version 2.8.6 is out already and in use on my own sites and some of the features include the following:</p><p><ul><li>Ability to set a minimum character length a tag must have before being used as a tag.</li><li>New functions to allow for the tagging of words like al-Qaeda or 1,000 Guineas (as 1000 Guineas).</li><li>The ability to use a basic markup format to match certain words but tag another. For example <strong>[Snowden,NSA,PRISM]=[Police State]</strong> would allow the system to match the words Snowden, Prism or NSA <strong>but</strong> add the tag Police State to the article.</li><li>The ability to convert plain text hrefs and urls into real anchors e.g www.msnbc.com would become a real clickable link.</li></ul></p><p>New features will be added in future including text spinning and other HTML reformatting but from now on versions of this plugin will only be available to people who donate <strong>at least &pound;40 only!</strong></p><p>However I may still release free version from time to time with older features from the donate only plugin plus bug fixes.</p>";
 
 		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p>';
 

@@ -4,8 +4,8 @@ Donate link: http://www.strictly-software.com/donate
 Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
-Tested up to: 3.4.2
-Stable tag: 2.8.5
+Tested up to: 3.6.1
+Stable tag: 2.8.7
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -202,3 +202,16 @@ that are currently saved as post tags. This should help the problem where people
 * Cleaned code that wasn't needed anymore due to changes with the way I handle href/src/title/alt attributes to prevent nested tagging
 * Removed unneccessary regular expressions which are not needed now.
 * Added details about all the sexy new features for version 2.8.5 which is donate and deliver only!
+
+= 2.8.6 =
+* DONATION ONLY VERSION - Contact me from my site www.strictly-software.com or donate from admin panel £40 to get your hands on this version
+* Updated storage to handle new data-blah and data-blah-blah attributes so they don't get tagged inside images by mistake
+* Added new tag equivalent functionality using a simple method so that you can match instances of certain words BUT use a different tag for example [Snowden, NSA, PRISM]=[Police State] would allow the system to match the words Snowden, Prism and NSA but add a tag "Police State" (if relevant of course). You can use as many replacements as you want using a simple markup format. Allows for you to add a tag that may never appear in the article but is related to other words that do.
+* I've added an option to set the minimum number of letters a tag must have before it is used as a tag. This applies to stored tags or newly found ones.
+* Added option to tell system whether or not to convert plain text links e.g www.msnbc.com into real links before tagging e.g <a href="http://www.msnbc.com">msnbc.com</a>
+* Created a new name function to match names like al-Qaeda or al-Nusra Front or even words with commas in like 1,000 Guineas which would be tagged as 1000 Guineas.
+* Allows for storing tags in the [youtube youtube.com?v=345345] format so that words within those tags don't get messed up
+
+= 2.8.7 =
+* Updated the free version storage function to store new data-blah and data-blah-blah attributes so they don't get tagged inside images by mistak
+* Updated the storage fnction to store [youtube blah] [somesite blah] tags so they don't get tagged by accident
