@@ -210,7 +210,7 @@ that are currently saved as post tags. This should help the problem where people
 * I've added an option to set the minimum number of letters a tag must have before it is used as a tag. This applies to stored tags or newly found ones.
 * Added option to tell system whether or not to convert plain text links e.g www.msnbc.com into real links before tagging e.g <a href="http://www.msnbc.com">msnbc.com</a>
 * Created a new name function to match names like al-Qaeda or al-Nusra Front or even words with commas in like 1,000 Guineas which would be tagged as 1000 Guineas.
-* Allows for storing tags in the [youtube youtube.com?v=345345] format so that words within those tags don't get messed up
+* Allows for storing tags in shortcodes amd other special html tags such as headers, anchors, strong and bold tags so that words within those tags don't get messed up
 
 = 2.8.7 =
 * Updated the free version storage function to store new data-blah and data-blah-blah attributes so they don't get tagged inside images by mistake
