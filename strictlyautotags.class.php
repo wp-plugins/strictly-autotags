@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.8.7
+ * Version: 2.8.8
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -25,7 +25,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.8.7";
+	protected $version = "2.8.8";
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -247,13 +247,15 @@ class StrictlyAutoTags{
 
 	public function __construct(){
 
+		ShowDebugAutoTag("IN StrictlyAutoTag INIT");
+
 		// add any new options for users upgrading the plugin
 		StrictlyAutoTagControl::UpgradedOptions();		
 
 		// set up values for config options e.g autodiscover, ranktitle, maxtags
 		$this->GetOptions();
 
-		ShowDebugAutoTag("do we deeplink = " . intval($this->taglinks));
+		ShowDebugAutoTag("Got Options");
 
 
 		// create some regular expressions required by the parser
@@ -280,15 +282,18 @@ class StrictlyAutoTags{
 		// add options to admin menu
 		add_action('admin_menu'				, array(&$this, 'RegisterAdminPage'));
 		
+		ShowDebugAutoTag("Set a SavePost for the next article");
+
 		// set a function to run whenever posts are saved that will call our AutoTag function
-		add_action('save_post'				, array(&$this, 'SaveAutoTags'),1);
-		//add_action('publish_post'			, array(&$this, 'SaveAutoTags'),1);
+		add_action('save_post'				, array($this, 'SaveAutoTags'),1);
+		//add_action('publish_post'			, array(&$this, 'PublishedArticle'),2);
 		//add_action('post_syndicated_item'	, array(&$this, 'SaveAutoTags'),1);
 
-
+		//ShowDebugAutoTag("END OF StrictlyAutoTag INIT");
 	}
-
 	
+	
+
 	/**
 	 * Check post content for auto tags
 	 *
@@ -297,16 +302,22 @@ class StrictlyAutoTags{
 	 * @return boolean
 	 */
 	public function SaveAutoTags( $post_id = null, $post_data = null ) {
+	
+		set_time_limit(0);
+
 
 		ShowDebugAutoTag("IN SaveAutoTags post id = " . $post_id);
-
+		
 		global $wpdb;
+		
 
 		$object = get_post($post_id);
 		if ( $object == false || $object == null ) {
 			return false;
 		}
 
+
+		
 		// if we skip posts with tags already then leave now
 		if ( get_the_tags($object->ID) != false) {
 
@@ -316,10 +327,16 @@ class StrictlyAutoTags{
 
 				ShowDebugAutoTag("We ignore posts already with tags");
 
+				ShowDebugAutoTag("fire actions on finished_doing_tagging with post ID of " . $object->ID);
+
+				// fire in case tweetbot needs to tweet
+				do_action('finished_doing_tagging', $object->ID);
+
 				return false;
 			}
 
 		}
+
 		
 		// have we already got tags against this post and if so do they contain strictly links and bold tags
 		
@@ -437,6 +454,11 @@ class StrictlyAutoTags{
 			}			
 		}
 
+		ShowDebugAutoTag("fire actions on finished_doing_tagging with post ID of " . $object->ID);
+
+		// fire in case tweetbot needs to tweet
+		do_action('finished_doing_tagging', $object->ID);
+
 		ShowDebugAutoTag("END OF AUTOTAG HOOK");
 
 		return true;
@@ -448,6 +470,9 @@ class StrictlyAutoTags{
 	* @returns string;
 	*/
 	protected function CheckAndCleanTags($content){
+		
+		set_time_limit(0);
+
 
 		ShowDebugAutoTag("IN CheckAndCleanTags");
 
@@ -791,8 +816,7 @@ class StrictlyAutoTags{
 
 			ShowDebugAutoTag("match [youtube video]");
 
-			// store wordpress crap [youtube=blah] as convert to links will screw it up
-			// store stuff already in <a> <strong> <h4> etc
+			// store wordpress crap [youtube=blah] and shortcodes 
 			preg_match_all("@(\[\S+?\s+\S+?\])@",$content,$matches,PREG_SET_ORDER);
 			
 			if($matches)
@@ -1561,18 +1585,18 @@ class StrictlyAutoTags{
 				ShowDebugAutoTag("title is valid so add to discover content");
 
 				// add a full stop to ensure words at the end of the title don't accidentally match those in the content during auto discovery
-				$discovercontent .= " " . $title . ". ";				
+				$discovercontent .= " " . $title . " ";				
 			}
 
 
 			// ensure article is not full of capitals
 			if($this->ValidContent($article)){
-				$discovercontent .= " " . $article . " ";					
+				$discovercontent .= ". " . $article . " ";					
 			}
 
 			// ensure excerpt  is not full of capitals
 			if($this->ValidContent($excerpt)){
-				$discovercontent .= " " . $excerpt . " ";					
+				$discovercontent .= ". " . $excerpt . " ";					
 			}
 			
 		}else{			
@@ -1583,9 +1607,9 @@ class StrictlyAutoTags{
 
 		// if we are doing a special parse of the title we don't need to add it to our content as well
 		if($this->ranktitle){
-			$content			= " " . $article . " " . $excerpt . " ";
+			$content			= " " . $article . ". " . $excerpt . " ";
 		}else{
-			$content			= " " . $article . " " . $excerpt . " " . $title . " ";
+			$content			= " " . $article . ". " . $excerpt . ". " . $title . " ";
 		}
 
 		// set working variable which will be decreased when tags have been found
@@ -1726,10 +1750,31 @@ class StrictlyAutoTags{
 
 			}
 
+			/*
+			ShowDebugAutoTag("get links as they are important tags");
+
+			// get other important content
+			preg_match_all("@<a [^>]+?>([\S\s]+?)<\/?a>@i",$html,$matches,PREG_SET_ORDER);			
+			
+
+			if($matches){
+			
+				foreach($matches as $match){
+					
+					ShowDebugAutoTag("ANCHOR MATCH == " . $match[1]);
+
+					$important_content = html_entity_decode(strip_tags($match[1]));
+
+					$this->SearchContent($important_content,$terms,$tagstack,150);
+				}
+
+			}
+			*/
+
 			ShowDebugAutoTag("get other important tags");
 
 			// get other important content
-			preg_match_all("@<(b|em|strong|a)>([\S\s]+?)<\/?\\1>@i",$html,$matches,PREG_SET_ORDER);			
+			preg_match_all("@<(b|i|em|strong)>([\S\s]+?)<\/?\\1>@i",$html,$matches,PREG_SET_ORDER);			
 			
 
 			if($matches){
@@ -1796,6 +1841,33 @@ class StrictlyAutoTags{
 	}
 
 	/**
+	 * formats a search term to allow for ownwership tags we want to match
+	 *
+	 * @param string $term		
+	 * @return string	 
+	 */
+	protected function FormatSearchTerm($term)
+	{
+		ShowDebugAutoTag("IN FormatSearchTerm $term");
+
+		$words = explode(" ",$term);
+		$newterm = "";
+
+		foreach($words as $word)
+		{
+			if(!empty($word)){
+				$newterm .= preg_quote($word) . "(['’]s)? ";
+			}
+		}
+
+		$newterm = trim($newterm);
+
+		ShowDebugAutoTag("RETURN " . $newterm);
+
+		return $newterm;
+	}
+
+	/**
 	 * parses content with a supplied array of terms looking for matches
 	 *
 	 * @param string content
@@ -1822,14 +1894,26 @@ class StrictlyAutoTags{
 				// for an accurate search use preg_match_all with word boundaries
 				// as substr_count doesn't always return the correct number from tests I did
 				
+				/*
 				// for exact matches we want to ensure that New York City Fire Department only matches that and not New York City
 				if($this->nestedtags == AUTOTAG_LONG){
 
-					$regex = "@(^|[.,;:?]\s*|\s+[a-z1-9]+\s+)" . preg_quote( $term ) . "([.,;:?]|\s+[a-z1-9]+|$)@";
+					$regex = "@(^|[ .,;:?]\s*|\s+[a-z0-9]+\s+)" . $this->FormatSearchTerm( $term ) . "([ .,;:?]|\s+[a-z0-9]+|$)@";
 
 				}else{
-					$regex = "@\b" . preg_quote( $term ) . "\b@";
+					$regex = "@\b" . $this->FormatSearchTerm( $term ) . "\b@";
 				}
+				*/
+				// for exact matches we want to ensure that New York City Fire Department only matches that and not New York City
+				if($this->nestedtags == AUTOTAG_LONG){
+
+					$regex = "@(^|[ .,;:?]\s*|\s+[a-z0-9]+\s+)" . preg_quote( $term ) . "([ .,;:?]|\s+[a-z0-9]+|$)@";
+
+				}else{
+					$regex = "@\b" .preg_quote( $term ) . "\b@";
+				}
+
+
 
 				$addtag		= false;
 				$addarray	= array();
@@ -1981,7 +2065,7 @@ class StrictlyAutoTags{
 		// get saved options from wordpress DB
 		$options = get_option('strictlyautotags');
 
-		ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
+		//ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
 
 		// if there are no saved options then use defaults
 		if ( !is_array($options) )
@@ -2020,7 +2104,7 @@ class StrictlyAutoTags{
 				$options['boldtaggedwords'] = false;
 			}
 
-			ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
+			//ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
 
 
 			// paid for special options
@@ -2031,7 +2115,7 @@ class StrictlyAutoTags{
 				$options['taglinks'] = false;
 			}
 
-			ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($options['taglinks']));
+		//	ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($options['taglinks']));
 
 			if(IsNothing($options['removestrictlytagsandlinks'])){
 
@@ -2111,12 +2195,12 @@ class StrictlyAutoTags{
 
 		$this->boldtaggedwords				= $options['boldtaggedwords'];
 
-		ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($options['taglinks']));
+		//ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($options['taglinks']));
 
 
 		$this->taglinks						= $options['taglinks'];
 
-		ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
+		//ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($this->taglinks));
 
 
 		$this->deeplinktitle				= $options['deeplinktitle'];
@@ -2724,13 +2808,14 @@ class StrictlyAutoTags{
 class StrictlyAutoTagControl{
 
 	
-	private static $StrictlyAutoTag;
+	//private static $StrictlyAutoTag;
 
 
 	/**
 	 * Init is called on every page not just when the plugin is activated and creates an instance of my strictly autotag class if it doesn't already exist
 	 *
 	 */
+	/*
 	public static function Init(){
 		
 		if(!isset(StrictlyAutoTagControl::$StrictlyAutoTag)){
@@ -2739,7 +2824,8 @@ class StrictlyAutoTagControl{
 		}
 
 	}
-	
+	*/
+
 	/**
 	 * Called when plugin is deactivated and removes all the settings related to the plugin
 	 *
@@ -2804,9 +2890,8 @@ register_activation_hook(__FILE__, 'StrictlyAutoTagControl::Activate');
 // register my deactivate hook to ensure when the plugin is deactivated everything is cleaned up
 register_deactivation_hook(__FILE__, 'StrictlyAutoTagControl::Deactivate');
 
-add_action('init', 'StrictlyAutoTagControl::Init');
+//add_action('init', 'StrictlyAutoTagControl::Init');
 
-// create auto tag object
-//$strictlyautotags = new StrictlyAutoTags();
+$StrictlyAutoTag = new StrictlyAutoTags();
 
 ?>

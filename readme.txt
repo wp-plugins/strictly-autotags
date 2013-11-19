@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.6.1
-Stable tag: 2.8.7
+Stable tag: 2.8.8
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -213,5 +213,8 @@ that are currently saved as post tags. This should help the problem where people
 * Allows for storing tags in the [youtube youtube.com?v=345345] format so that words within those tags don't get messed up
 
 = 2.8.7 =
-* Updated the free version storage function to store new data-blah and data-blah-blah attributes so they don't get tagged inside images by mistak
-* Updated the storage fnction to store [youtube blah] [somesite blah] tags so they don't get tagged by accident
+* Updated the free version storage function to store new data-blah and data-blah-blah attributes so they don't get tagged inside images by mistake
+* Updated the storage function to store [youtube blah] [somesite blah] tags so they don't get tagged by accident
+
+= 2.8.8 =  
+* Added hook so other plugins can act once the tagging is finished
