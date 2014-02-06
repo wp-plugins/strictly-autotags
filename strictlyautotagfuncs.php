@@ -33,8 +33,8 @@ if(!function_exists('is_tag_me')){
 		}
 		
 		// put your IP here
-		if($ip == "816.43.22.15" || $ip == "61.53.11.147"){
-			return false;
+		if($ip == "821.3.5.125" || $ip == "11.3.231.1"){
+			return true;
 		}else{
 			return false;
 		}
@@ -60,15 +60,16 @@ if(!function_exists('ShowDebugAutoTag')){
 	 * @param string $msg
 	 */
 	function ShowDebugAutoTag($msg){
-		if(DEBUGAUTOTAG){
-			if(!empty($msg)){
-				if(is_array($msg)){
-					print_r($msg);
-					echo "<br />";
-				}else{
-					echo htmlspecialchars($msg) . "<br>";
-				}
-			}
+		if(DEBUGAUTOTAG){			
+			if(is_array($msg)){
+				print_r($msg);
+				echo "<br />";
+			}else if(is_object($msg)){
+				var_dump($msg);
+				echo "<br />";
+			}else if(is_string($msg)||is_numeric($msg)){
+				echo htmlspecialchars($msg) . "<br>";
+			}		
 		}
 	}
 }

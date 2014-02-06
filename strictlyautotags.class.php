@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.8.8
+ * Version: 2.9.0
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -20,12 +20,29 @@ require_once(dirname(__FILE__) . "/strictlyautotagfuncs.php");
 class StrictlyAutoTags{
 
 	/**
-	* current version of plugin 
+	* The kind of version this is
 	*
 	* @access protected
 	* @var string
 	*/
-	protected $version = "2.8.8";
+	protected $version_type = "FREE";
+
+	/**
+	* current free version of plugin 
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $free_version = "2.9.0";
+
+	/**
+	* latest paid for version
+	*
+	* @access protected
+	* @var string
+	*/
+	protected $paid_version = "2.9.1";
+
 
 	/**
 	* whether or not to remove all the saved options on uninstallation
@@ -177,7 +194,7 @@ class StrictlyAutoTags{
 	protected $taglinks;
 
 	/**
-	* Max no of posts a tag must have to deeplink it within the post if enabled
+	* Min no of posts a tag must have against it to deeplink it within the post if enabled
 	*
 	* @access protected
 	* @var int
@@ -249,7 +266,7 @@ class StrictlyAutoTags{
 
 		ShowDebugAutoTag("IN StrictlyAutoTag INIT");
 
-		// add any new options for users upgrading the plugin
+		// add/remove any new options for users upgrading the plugin who didn't de-activate/activate to install it e.g FTP only
 		StrictlyAutoTagControl::UpgradedOptions();		
 
 		// set up values for config options e.g autodiscover, ranktitle, maxtags
@@ -530,8 +547,9 @@ class StrictlyAutoTags{
 		set_time_limit(200);
 
 		ShowDebugAutoTag("b4 replace len is " . strlen($content));
-
-		$content = preg_replace("@(<strong class='StrictlyAutoTagBold'>)([\s\S]+?)(</strong>)@","$2",$content);
+		
+		// match single AND double quotes as I switch bold for links sometimes
+		$content = preg_replace("@(<strong class=[\"']StrictlyAutoTagBold[\"']>)([\s\S]+?)(</strong>)@","$2",$content);
 
 		ShowDebugAutoTag("after first replace len is " . strlen($content));
 
@@ -570,7 +588,7 @@ class StrictlyAutoTags{
 				// instead of doing negative lookaheads and entering a world of doom match and then clean	
 				// easier to do a positive match than a negative especially with nested matches
 				// might want to tag words with dots in e.g msnbc.com
-				$regex = "@\b(" . preg_quote($tag) . ")(\s|\.\s|$)@";
+				$regex = "@\b(" . preg_quote($tag) . ")(\s|\.(?:\s|<\/)|$)@";
 
 				ShowDebugAutoTag("regex is $regex");
 
@@ -816,7 +834,7 @@ class StrictlyAutoTags{
 
 			ShowDebugAutoTag("match [youtube video]");
 
-			// store wordpress crap [youtube=blah] and shortcodes 
+			// store wordpress gubbins [youtube=blah] and shortcodes 
 			preg_match_all("@(\[\S+?\s+\S+?\])@",$content,$matches,PREG_SET_ORDER);
 			
 			if($matches)
@@ -1089,10 +1107,18 @@ class StrictlyAutoTags{
 			// find tags for this post
 			$posttags = $this->AutoTag( $object,  $all_posts );
 
+			
 
-			ShowDebugAutoTag("do we bold and deeplink");
+			ShowDebugAutoTag("do we bold / deeplink / convert text to links");
 
-			if($this->boldtaggedwords || $this->taglinks){				
+			if($this->boldtaggedwords || $this->taglinks ){	
+				
+				ShowDebugAutoTag("yes so store content");
+
+				// store href/alt/src/title attributes that would cause issues with nested tags
+				$newcontent = $this->StoreContent($newcontent, "STORE");
+
+				
 
 				ShowDebugAutoTag("call bold or deeplink tags");
 
@@ -1113,6 +1139,9 @@ class StrictlyAutoTags{
 					$newcontent = $this->AutoLink($newcontent,$posttags);
 
 				}
+						
+				// put stored placeholders back in to content and clear cache
+				$newcontent = $this->StoreContent($newcontent, "RETURN");
 
 				// now save the new deeplinked bolded content
 
@@ -1199,54 +1228,9 @@ class StrictlyAutoTags{
 				return false;
 			}		
 			
-
-
-			ShowDebugAutoTag("Do we need to clean any Strictly Goodness?");
-
-			$newcontent = $this->CheckAndCleanTags( $object->post_content );
-			
-			// find tags for this post
+			// find tags for this post THATS all we do in this method
 			$posttags = $this->AutoTag( $object,  $all_posts );
-
-
-			ShowDebugAutoTag("do we bold and deeplink");
-
-			if($this->boldtaggedwords || $this->taglinks){				
-
-				ShowDebugAutoTag("call bold or deeplink tags");
-
-				if($this->boldtaggedwords && count($posttags) > 0){
-
-					ShowDebugAutoTag("Auto Bold this content");
-
-					// help SEO by bolding our tags
-					$newcontent = $this->AutoBold($newcontent,$posttags);
-
-				}
-
-				if($this->taglinks && count($posttags) > 0){
-
-					ShowDebugAutoTag("Auto Link this content");
-
-					// help SEO by deeplinking our tags
-					$newcontent = $this->AutoLink($newcontent,$posttags);
-
-				}
-
-				// now save the new deeplinked bolded content
-
-				ShowDebugAutoTag("our new content is === " . $newcontent);
-
-				$sql = $wpdb->prepare("UPDATE {$wpdb->posts} SET post_content = %s WHERE id = %d;", $newcontent,$object->ID);
-
-				ShowDebugAutoTag("SQL is $sql");
-
-				$r = $wpdb->query($sql);
-					
-				ShowDebugAutoTag("should have been updated rows = " . $r);				
 			
-			}
-
 
 			if($posttags !== false){
 			
@@ -1299,7 +1283,7 @@ class StrictlyAutoTags{
 			$content = preg_replace("/(\w)([‘'’]s )/i","$1 ",$content);
 
 			// now remove anything not a letter or number
-			$content = preg_replace("/[^\w\d\s\.,\?]/"," ",$content);
+			$content = preg_replace("/[^-\w\d\s\.,\?]/"," ",$content);
 			
 			// replace new lines with a full stop so we don't get cases of two unrelated strings being matched
 			$content = preg_replace("/\r\n/",". ",$content);
@@ -1338,6 +1322,35 @@ class StrictlyAutoTags{
 				return false;
 			}
 		}
+	}
+
+	/**
+	 * Format content to make searching for new tags easier
+	 *
+	 * @param string $content
+	 * @return string
+	 */
+	protected function FormatTitle($content="")
+	{
+		ShowDebugAutoTag("IN FormatTitle = $content");
+
+		if(!empty($content)){
+
+			// remove plurals
+			$content = preg_replace("/(\w)([‘'’]s )/i","$1 ",$content);
+			$content = preg_replace("/(\ws)([‘'’] )/i","$1 ",$content);
+
+			// now remove anything not a letter or number
+			$content = preg_replace("/[^-\w\d\s\.,\?]/"," ",$content);		
+
+			// remove excess space
+			$content = preg_replace("/\s{2,}/"," ",$content);
+		}
+
+		ShowDebugAutoTag("RETURN = $content");
+
+		return $content;
+
 	}
 
 	/**
@@ -1394,7 +1407,7 @@ class StrictlyAutoTags{
 	protected function StripNonWords($words){
 
 		// strip everything not space or uppercase/lowercase
-		$words = preg_replace("/[^A-Za-z\s]/","",$words);
+		$words = preg_replace("@[^-A-Za-z\s]@","",$words);
 	
 		return $words;
 	}
@@ -1525,6 +1538,34 @@ class StrictlyAutoTags{
 		return true;
 	}
 
+	/**
+	 * If post content to discover new tags and then rank matching tags so that only the most appropriate are added to a post
+	 *
+	 * @param string $content
+	 * @return string
+	 */
+	public function RemoveBasicFormatting($content)
+	{		
+		ShowDebugAutoTag("IN RemoveBasicFormatting content = " . $content);
+		
+		// remove empty tags first to save on negative lookaheads or 0 or more chars later on
+		
+		$content = preg_replace("@(<(b|em|strong|i|font|span)(?:\s.*?>|>))\s*?(<\/\\2>)@i","",$content);	
+
+		ShowDebugAutoTag("1 We return this content = " . $content);
+
+		$content = preg_replace("@(<(b|em|strong|i|font|span)>)([\S\s]*?)(<\/?\\2>)@i","$3",$content);
+
+		ShowDebugAutoTag("2 We return this content = " . $content);
+
+		// remove all basic formatting this is done before we add our own bold/a tags
+		$content = preg_replace("@(<(b|em|strong|i|font|span)(?:\s.*?>|>))([\S\s]+?)(<\/?\\2>)@i","$3",$content);	
+		
+		ShowDebugAutoTag("3 We return this content = " . $content);
+
+		return $content;
+		
+	}
 
 	/**
 	 * Parse post content to discover new tags and then rank matching tags so that only the most appropriate are added to a post
@@ -1608,6 +1649,7 @@ class StrictlyAutoTags{
 		// if we are doing a special parse of the title we don't need to add it to our content as well
 		if($this->ranktitle){
 			$content			= " " . $article . ". " . $excerpt . " ";
+			$title				= $this->FormatTitle($title);
 		}else{
 			$content			= " " . $article . ". " . $excerpt . ". " . $title . " ";
 		}
@@ -2049,8 +2091,8 @@ class StrictlyAutoTags{
 	 * Register AdminOptions with Wordpress
 	 *
 	 */
-	public function RegisterAdminPage() {
-		add_options_page('Strictly Auto Tags', 'Strictly Auto Tags', 10, basename(__FILE__), array(&$this,'AdminOptions'));	
+	public function RegisterAdminPage() {	
+		add_options_page('Strictly Auto Tags', 'Strictly Auto Tags', 'manage_options', basename(__FILE__), array(&$this,'AdminOptions'));	
 	}
 
 	/**
@@ -2071,7 +2113,7 @@ class StrictlyAutoTags{
 		if ( !is_array($options) )
 		{
 			// This array sets the default options for the plugin when it is first activated.
-			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true, 'maxtagwords'=>3, 'boldtaggedwords' => false, 'noisewords_case_sensitive'=>$this->defaultnoisewords_case_sensitive, 'taglinks'=>false, 'deeplinktitle'=>"View all articles about %post_tag% here", 'maxtagstolink'=>2, 'minpoststotaglink'=>4, 'removestrictlytagsandlinks'=>false, 'skiptaggedposts'=>false);
+			$options = array('autodiscover'=>true, 'ranktitle'=>true, 'maxtags'=>4, 'ignorepercentage'=>50, 'noisewords'=>$this->defaultnoisewords, 'nestedtags'=>AUTOTAG_LONG, 'rankhtml'=>true, 'maxtagwords'=>3, 'boldtaggedwords' => false, 'noisewords_case_sensitive'=>$this->defaultnoisewords_case_sensitive, 'taglinks'=>false, 'deeplinktitle'=>"View all articles about %post_tag% here", 'maxtagstolink'=>2, 'minpoststotaglink'=>4, 'removestrictlytagsandlinks'=>false, 'skiptaggedposts'=>true);
 
 		}else{
 
@@ -2126,9 +2168,9 @@ class StrictlyAutoTags{
 			
 			if(IsNothing($options['skiptaggedposts'])){
 
-				ShowDebugAutoTag("options['skiptaggedposts'] is nothing set to false");
+				ShowDebugAutoTag("options['skiptaggedposts'] is nothing set to true");
 
-				$options['skiptaggedposts'] = false;
+				$options['skiptaggedposts'] = true;
 			}
 
 			
@@ -2218,6 +2260,7 @@ class StrictlyAutoTags{
 	}
 
 	
+
 	/**
 	 * Admin page for backend management of plugin
 	 *
@@ -2365,6 +2408,10 @@ class StrictlyAutoTags{
 
 				// make sure the noise words don't start or end with pipes				
 				if( preg_match("@^([-a-z'0-9. ]+\|[-a-z'0-9. ]*)+$@i",$noisewords)){
+
+					$noisewords = preg_replace("@^\|@","",$noisewords);
+					$noisewords = preg_replace("@\|$@","",$noisewords);
+
 					$options['noisewords']	= $noisewords;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -2394,6 +2441,10 @@ class StrictlyAutoTags{
 
 				// make sure the noise words don't start or end with pipes				
 				if( preg_match("@^([-a-z'0-9. ]+\|[-a-z'0-9. ]*)+$@i",$noisewords_case_sensitive)){
+					
+					$noisewords_case_sensitive = preg_replace("@^\|@","",$noisewords_case_sensitive);
+					$noisewords_case_sensitive = preg_replace("@\|$@","",$noisewords_case_sensitive);
+
 					$options['noisewords_case_sensitive']	= $noisewords_case_sensitive;
 
 					ShowDebugAutoTag("do we remove any saved noise words = " . $removenoise);
@@ -2532,9 +2583,30 @@ class StrictlyAutoTags{
 
 		echo	'<div class="wrap" id="StrictlyAutoTagsAdmin">';
 
-		echo	'<div class="postbox">						
-					<h3 class="hndle">'.sprintf(__('Strictly AutoTags - Version %s', 'strictlyautotags'),$this->version).'</h3>					
-					<div class="inside">';		
+		if($this->version_type == "FREE")
+		{
+
+			echo	'<div class="postbox">						
+						<h3 class="hndle">'.sprintf(__('Strictly AutoTags - Free Version %s (Most Recent Version is %s)', 'strictlyautotags'),$this->free_version,$this->paid_version).'</h3>					
+						<div class="inside">
+							<p>' . __('You are using the free version of this software. I would like to keep just one version of this code running instead of two as it\'s a lot of work however as no-one donates I cannot afford to. If you find this plugin usefull just think - if everyone had donated just even a single &pound;1 how much time I could spend on this project with over 150,000 downloads so far. This way I could make it a much better plugin for everyone giving everybody the full range of options.') . '</p>
+							<p><strong>' . __('At the moment you are missing out on the following options.') . '</strong></p>
+							<ul><li>Being able to use tag equivalency e.g if certain words are found e.g NSA, Snowden, PRISM add the tag Privacy to an article.</li>
+							<li>Being able to automatically turn text such as http://mysite.com or www.mysite.com into real clickable anchor tags.</li>
+							<li>Being able to turn on &quot;Clean Edit Mode&quot; and edit a post to remove any HTML formatting the AutoTag plugin adds in if you need to.</li>
+							<li>Being able to remove basic formatting tags from posts you may have imported such as &lt;I&gt;, &lt;B&gt;, &lt;SPAN&gt; and &lt;FONT&gt; tags.</li>
+							<li>Being able to set a minimum word limit that a tag must have to be included during auto-discovery.</li>
+							<li>New functions specifically designed to match trickier words such as <strong>World War II</strong>, <strong>al-Nusra Front</strong>, <strong>1,000 Guineas</strong> or <strong>Pope John Paul II</strong>.</li>
+							</ul>
+							<p>If you feel any of these options could be useful to you then you can purchase the latest edition of the plugin from my site for &pound;40 or you can start off the donation rally and hopefully others will follow you.<p><p>To buy the latest edition of the plugin now go to <a href="http://www.strictly-software.com/plugins/strictly-auto-tags">www.strictly-software.com/plugins/strictly-auto-tags</a> and purchase it now.</p>';		
+
+		}else{
+			
+			echo	'<div class="postbox">						
+						<h3 class="hndle">'.sprintf(__('Strictly AutoTags - Paid Version %s (Thank you!)', 'strictlyautotags'),$this->paid_version).'</h3>					
+						<div class="inside">';		
+
+		}
 
 		// get no of underused tags
 		$underused		= $this->GetUnderusedTags($notags);
@@ -2546,37 +2618,30 @@ class StrictlyAutoTags{
 			echo '<p class="error">' . $errmsg . '</p>';
 		}
 
-		echo "<p><strong>Important Notice about Strictly AutoTags 2.8.6</strong></p><p>As I haven't been getting enough donations to make this plugin worthwhile (apart from my own use) I have decided to <strong>only make future versions available to people who donate &pound;40 (or above). The donation button is at the bottom of this form.</strong></p><p>Version 2.8.6 is out already and in use on my own sites and some of the features include the following:</p><p><ul><li>Ability to set a minimum character length a tag must have before being used as a tag.</li><li>New functions to allow for the tagging of words like al-Qaeda or 1,000 Guineas (as 1000 Guineas).</li><li>The ability to use a basic markup format to match certain words but tag another. For example <strong>[Snowden,NSA,PRISM]=[Police State]</strong> would allow the system to match the words Snowden, Prism or NSA <strong>but</strong> add the tag Police State to the article.</li><li>The ability to convert plain text hrefs and urls into real anchors e.g www.msnbc.com would become a real clickable link.</li></ul></p><p>New features will be added in future including text spinning and other HTML reformatting but from now on versions of this plugin will only be available to people who donate <strong>at least &pound;40 only!</strong></p><p>However I may still release free version from time to time with older features from the donate only plugin plus bug fixes.</p>";
+		
+		$installdate = get_option('strictlyautotag_install_date');
+		$now		 = date('Y-m-d\TH:i:s+00:00',time());		
+		$diff		 = (int)((strtotime($now) - strtotime($installdate)) / 60);	
+		$tagged		 = get_option('strictlyautotagcount');
+
+		ShowDebugAutoTag("we have tagged $tagged tags so far in the $diff minutes since $installdate");
+
+		echo '<p><strong>'.__('About Strictly AutoTags','strictlyautotags').'</strong></p>';
 
 		echo	'<p>'.__('Strictly AutoTags is designed to do one thing and one thing only - automatically add relevant tags to your posts.', 'strictlyautotags').'</p>';
 
-		$installdate = get_option('strictlyautotag_install_date');
-		$installtype = get_option('strictlyautotag_install_type');
-		$now		 = date('Y-m-d\TH:i:s+00:00',time());		
-		$diff		 = (int)((strtotime($now) - strtotime($installdate)) / 60);
-	
-		$tagged = get_option('strictlyautotagcount');
 
-		ShowDebugAutoTag("we have tagged $tagged tags so far in the $diff minutes since our $installtype on $installdate");
-
-		
-		// for all tests we ensure at least 5 mins have passed to prevent hammering
 		if(($diff > 10080 && $tagged > 100) || get_option('strictlyautotagcount') > 250){
-		//if(1==1){
 			
-
-			if($installtype == "upgrade"){
-				echo '<p>'. sprintf(__('Strictly AutoTags has automatically generated <strong>%s tags</strong> since upgrading on %s.', 'strictlyautotags'),number_format($tagged),$installdate).'</p>';
-			}else{
-				echo '<p>'. sprintf(__('Strictly AutoTags has automatically generated <strong>%s tags</strong> since installation on %s.', 'strictlyautotags'),number_format($tagged),$installdate).'</p>';
-			}
-			
-		}			
+			// removed logic as not neccessary
+			echo '<p>'. sprintf(__('Strictly AutoTags has automatically generated <strong>%s tags</strong> since %s.', 'strictlyautotags'),number_format($tagged),$installdate).'</p>';
+				
+		}		
 		
 		
-		echo '<p><strong>About Strictly AutoTags</strong></p><p>'.__('Please remember that this plugin has been developed for the <strong>English language</strong> and will only work with standard English characters e.g A-Z. If you have any problems with the plugin please check that it is not due to UTF-8 characters within the articles you are trying to auto tag.', 'strictlyautotags').'</p>
+		echo '<p>'.__('Please remember that this plugin has been developed for the <strong>English language</strong> and will only work with standard English characters e.g A-Z. If you have any problems with the plugin please check that it is not due to UTF-8 characters within the articles you are trying to auto tag.', 'strictlyautotags').'</p>
 				<ul><li>'.__('Enable Auto Discovery to find new tags.', 'strictlyautotags').'</li>
-				<li>'.__('Suitable words such as Acronyms, Names, Countries and other important keywords will then be identified within the post.', 'strictlyautotags').'</li>
+				<li>'.__('Suitable words such as acronyms, names, countries and other important keywords will then be identified within the post.', 'strictlyautotags').'</li>
 				<li>'.__('Existing tags will also be used to find relevant tags within the post.', 'strictlyautotags').'</li>
 				<li>'.__('Set the maximum number of tags to append to a post to a suitable amount. Setting the number too high could mean that tags that only appear once might be added.', 'strictlyautotags').'</li>
 				<li>'.__('Treat tags found in the post title, H1 or strong tags as especially important by enabling the Rank Title and Rank HTML options.', 'strictlyautotags').'</li>
@@ -2621,6 +2686,17 @@ class StrictlyAutoTags{
 				<p class="submit"><input value="'.__('Re-Link and Re-Tag Posts', 'strictlyautotags').'" type="submit" name="RelinkSubmit" id="RelinkSubmit"></p>
 				</div></div></form>';		
 
+		echo	'<form name="cleantag2" id="cleantag2" method="post">
+				<div class="postbox">						
+					<h3 class="hndle">'.__('Remove Deeplinking and Bolded HTML from existing posts - Tags Will Remain', 'strictlyautotags').'</h3>					
+					<div class="inside">
+				'. wp_nonce_field("cleantag2","strictlycleantagsnonce",false,false) .'
+				<div class="tagopt">
+				<label for="strictlyautotags-cleanhtml">'.__('Remove AutoTagging HTML','strictlyautotags').'</label><span class="notes">'.__('Selecting this will mean that all your posts will be re-scanned and any HTML from the deeplinking or bolding will be removed. Tags against articles will remain though. On big systems this could take a very long time depending on the number of posts.', 'strictlyautotags').'</span>
+				</div>
+				<p class="submit"><input value="'.__('Clean Tag HTML From Posts', 'strictlyautotags').'" type="submit" name="CleanHTML" id="CleanHTML"></p>
+				</div></div></form>';	
+
 		echo	'<form name="cleanup" id="cleanup" method="post">
 				<div class="postbox">						
 				<h3 class="hndle">'.__('Clean Up Tag Database', 'strictlyautotags').'</h3>					
@@ -2656,7 +2732,7 @@ class StrictlyAutoTags{
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-skip_tagged_posts">'.__('Skip Pre-Tagged Posts','strictlyautotags').'</label>
 				<input type="checkbox" name="strictlyautotags-skip_tagged_posts" id="strictlyautotags-skip_tagged_posts" value="true" ' . (($options['skiptaggedposts']) ? 'checked="checked"' : '') . '/>				
-				<span class="notes">'.__('Don\'t AutoTag posts that already have been tagged. Ideally set this to true, then let the plugin tag your posts before manually adding any tags yourself and re-saving. On the second save the post won\'t be scanned for tags or have SEO work carried out on it.', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Don\'t AutoTag posts that already have been tagged. Ideally set this to true, then let the plugin tag your posts when you save a draft copy of your article before manually adding/removing any tags yourself and publishing. On the second save the post won\'t be scanned for tags or have any SEO work or reformatting carried out on it.', 'strictlyautotags').'</span>
 				</div>';
 		
 
@@ -2704,9 +2780,9 @@ class StrictlyAutoTags{
 
 
 		echo	'<div class="tagopt">
-				<label for="strictlyautotags-deeplinktitle">'.__('Deeplink Tagged Words','strictlyautotags').'</label>
+				<label for="strictlyautotags-deeplinktitle">'.__('Deeplink Anchor Title','strictlyautotags').'</label>
 				<input type="text" name="strictlyautotags-deeplinktitle" id="strictlyautotags-deeplinktitle" value="' . esc_attr($options['deeplinktitle']) . '" />
-				<span class="notes">'.__('The title to use for deeplinked anchor tags. Use %post_tag% for the placeholder where the tag word will appear e.g "View all posts for this %post_tag% here".', 'strictlyautotags').'</span>
+				<span class="notes">'.__('The title to use for deeplinked anchor tags. Use %post_tag% for the placeholder where the tag word will appear e.g <strong>&quot;View all posts for this %post_tag% here&quot;</strong>.', 'strictlyautotags').'</span>
 				</div>';
 
 
@@ -2722,6 +2798,14 @@ class StrictlyAutoTags{
 				<span class="notes">'.__('Set the minimum number of tags that a post must have before deeplinking to their tag page.', 'strictlyautotags').'</span>
 				</div>';
 
+
+		echo	'<div class="tagopt">
+				<label for="strictlyautotags-remove">'.__('Remove Basic Format Tags','strictlyautotags').'</label>
+				<input type="checkbox" name="strictlyautotags-taglinks" id="strictlyautotags-taglinks" value="true" ' . (($options['taglinks']) ? 'checked="checked"' : '') . '/>				
+				<span class="notes">'.__('Wrap matched tags found within the post article with links to the relevant tag page. This aids SEO by deeplinking your site.', 'strictlyautotags').'</span>
+				</div>';
+
+
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-remove_strictly_tags_and_links">'.__('Always Cleanup on Re-Save','strictlyautotags').'</label>
 				<input type="checkbox" name="strictlyautotags-remove_strictly_tags_and_links" id="strictlyautotags-remove_strictly_tags_and_links" value="true" ' . (($options['removestrictlytagsandlinks']) ? 'checked="checked"' : '') . '/>						
@@ -2732,7 +2816,7 @@ class StrictlyAutoTags{
 		echo	'<div class="tagopt">
 				<label for="strictlyautotags-ignorepercentage">'.__('Ignore Capitals Percentage','strictlyautotags').'</label>
 				<input type="text" name="strictlyautotags-ignorepercentage" id="strictlyautotags-ignorepercentage" value="' . $options['ignorepercentage'] . '" />				
-				<span class="notes">'.__('Badly formatted content that contains too many capitalised words can cause false positives when discovering new tags. This option allows you to tell the system to ignore auto discovery if the percentage of capitalised words is greater than the specified threshold.', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Badly formatted content that contains too many capitalised words can cause false positives when discovering new tags. This option allows you to tell the system to ignore auto discovery if the percentage of capitalised words is greater than the specified threshold. Set to 0 to turn off this feature.', 'strictlyautotags').'</span>
 				</div>';
 
 		echo	'<div class="tagopt">
@@ -2763,7 +2847,7 @@ class StrictlyAutoTags{
 				<h3 class="hndle">'.__('Donate to Stictly Software', 'strictlyautotags').'</h3>					
 				<div class="inside donate">';		
 
-		echo	'<p>'.__('Your help ensures that my work continues to be free and any amount is appreciated.', 'strictlyautotags').'</p>';
+		echo	'<p>'.__('Please dontate to help me keep just one version of this plugin active and not keep all the best features for those who pay.', 'strictlyautotags').'</p>';
 		
 		echo	'<div style="text-align:center;"><br /><br />
 				<input type="hidden" name="cmd" value="_s-xclick"><br />
@@ -2774,10 +2858,10 @@ class StrictlyAutoTags{
 				<div class="postbox">						
 				<h3 class="hndle">'.__('Stictly Software Recommendations', 'strictlyautotags').'</h3>					
 				<div class="inside">				
-					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have		developed.', 'strictlyautotags').'</p>
+					<p>'.__('If you enjoy using this Wordpress plugin you might be interested in some other websites, tools and plugins I have developed.', 'strictlyautotags').'</p>
 					<ul>
 						<li><a href="http://www.strictly-software.com/plugins/strictly-auto-tags">'.__('Strictly AutoTags','strictlyautotags').'</a>
-							<p>'.__('Strictly AutoTags 2.8.6 is a sexy new version of this plugin that is only available to people who donate me &pound;40 to my PayPal account. Due to the lack of donations I have received so far I am keeping this new version for people who really want it. Not only does it offer the ability to use equivalent words for tags e.g match <strong>Snowden, NSA, GCHQ</strong> and tag the word <strong>Internet Privacy</strong>, but it has new functions to match words like al-Qaeda or 1,000 Guineas, convert plain text links into real anchors, set a minimum character length a tag must have to be used and also handles the new data-blah attributes to prevent nested tags. If you want it just donate me &pound;40 and I will email you the source code!','strictlyautotags').'</p>
+							<p>' . sprintf(__('Strictly AutoTags %s is the latest pay only version of this plugin that you can buy for &pound;40. Due to the lack of donations I have received so far I am keeping this new version for people who really want it. Not only does it offer the ability to use equivalent words for tags e.g match <strong>Snowden,NSA,GCHQ</strong> and tag the word <strong>Internet Privacy</strong>, but it has new functions to match words like al-Qaeda or 1,000 Guineas, convert plain (strong and weak) text links into real anchors, set a minimum character length and a maximum word count a tag must have to be used and also a new cleanup mode that lets you edit individual articles and remove HTML the plugin adds to aid SEO if you need it to. There is also a new function to remove basic styling tags if you need to, great for auto-bloggers. You can buy this plugin direct from my site. However if everyone using this plugin who liked it donated me a single &pound; I wouldn\'t need to do this so please consider it if you like this plugins features.','strictlyautotags'), $this->paid_version) .'</p>
 						</li>
 						<li><a href="http://wordpress.org/extend/plugins/strictly-tweetbot/">'.__('Strictly Tweetbot','strictlyautotags').'</a>
 							<p>'.__('Strictly Tweetbot is a Wordpress plugin that allows you to automatically post tweets to multiple accounts or multiple tweets to the same account whenever a post is added to your site. Features include: Content Analysis, Tweet formatting and the ability to use tags or categories as hash tags, OAuth PIN code authorisation and Tweet Reports.','strictlyautotags').'</p>
@@ -2808,14 +2892,13 @@ class StrictlyAutoTags{
 class StrictlyAutoTagControl{
 
 	
-	//private static $StrictlyAutoTag;
+	private static $StrictlyAutoTag;
 
 
 	/**
 	 * Init is called on every page not just when the plugin is activated and creates an instance of my strictly autotag class if it doesn't already exist
 	 *
 	 */
-	/*
 	public static function Init(){
 		
 		if(!isset(StrictlyAutoTagControl::$StrictlyAutoTag)){
@@ -2824,7 +2907,7 @@ class StrictlyAutoTagControl{
 		}
 
 	}
-	*/
+	
 
 	/**
 	 * Called when plugin is deactivated and removes all the settings related to the plugin
@@ -2836,24 +2919,21 @@ class StrictlyAutoTagControl{
 
 			delete_option("strictlyautotags");
 			delete_option("strictlyautotagcount");
-			delete_option("strictlyautotag_uninstall");
-			delete_option("strictlyautotag_install_type");
+			delete_option("strictlyautotag_uninstall");			
 			delete_option("strictlyautotag_install_date");
 
+			// no longer use this option so if it exists then delete it / might already have gone but this wont raise an error			
+			delete_option("strictlyautotag_install_type");			
+			
 		}
 
 	}
 
 	/**
-	 * Called when plugin is deactivated and removes all the settings related to the plugin
+	 * Called when plugin is activated and adds new options or removes old ones
 	 *
 	 */
 	public static function Activate(){
-
-		// if we havent got this value set then its a new install
-		if(!get_option('strictlyautotag_install_type')){
-			update_option('strictlyautotag_install_type', 'install');		
-		}		
 
 		StrictlyAutoTagControl::UpgradedOptions();		
 
@@ -2865,12 +2945,9 @@ class StrictlyAutoTagControl{
 	 */
 	public static function UpgradedOptions(){
 
-		// added in version 2.3
-
-		// if we havent got this set then its from an existing plugin already activated so its not a new install its an upgrade
-		if(!get_option('strictlyautotag_install_type')){
-			update_option('strictlyautotag_install_type', 'upgrade');		
-		}
+				
+		// no longer use this so delete if it exists
+		delete_option("strictlyautotag_install_type");					
 
 		// log the install date if we haven't already got one
 		if(!get_option('strictlyautotag_install_date')){
@@ -2890,8 +2967,7 @@ register_activation_hook(__FILE__, 'StrictlyAutoTagControl::Activate');
 // register my deactivate hook to ensure when the plugin is deactivated everything is cleaned up
 register_deactivation_hook(__FILE__, 'StrictlyAutoTagControl::Deactivate');
 
-//add_action('init', 'StrictlyAutoTagControl::Init');
+add_action('init', 'StrictlyAutoTagControl::Init');
 
-$StrictlyAutoTag = new StrictlyAutoTags();
 
 ?>
