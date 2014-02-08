@@ -1611,6 +1611,9 @@ class StrictlyAutoTags{
 		if(empty($article) && empty($excerpt) && empty($title)){		
 			return $addtags;	
 		}
+		
+		// remove anything in [] shortcodes so we don't leave the values as poosible NEW words e.g [youtube http://www.youtube.com/watch?v=FUpQ5jStLaA&w=500&h=300] View the original video could become View 300
+		$article = preg_replace("@(\[\S+?\s+\S+?\])@",$article,"");
 
 		// if we are looking for new tags then check the major sections to see what percentage of words are capitalised
 		// as that makes it hard to look for important names and strings

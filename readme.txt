@@ -251,6 +251,7 @@ that are currently saved as post tags. This should help the problem where people
 * Fixed issue with trailing | on noise words causing some regex issues.
 * Added new FormatTitle function to help with auto discovery and allow hyphens.
 * A much better debug function if you need to turn it on.
+* Added code to remove any [shortcode] before auto discovery to prevent attributes being found
 * Ask you all to donate me at least a single £1 so that I can could stop splitting the plugins into two versions. 150,000 at £1 would mean I could leave my job and work to make brilliant free plugins all the time!
 
 = 2.9.1 =
@@ -270,3 +271,4 @@ that are currently saved as post tags. This should help the problem where people
 * Added new FormatTitle function to help with auto discovery and allow hyphens.
 * A much better debug function if you need to turn it on.
 * Fix for anyone suffering old number style admin levels on activation.
+* Added code to remove any [shortcode] before auto discovery to prevent attributes being found
