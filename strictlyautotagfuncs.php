@@ -16,10 +16,10 @@ if(!defined('AUTOTAG_LONG')){
 	define('AUTOTAG_LONG',2);
 }
 
-if(!function_exists('is_tag_me')){
+if(!function_exists('me')){
 
 	// turn debug on for one IP only
-	function is_tag_me(){	
+	function me(){	
 		
 		$ip = "";           
 		if (getenv("HTTP_CLIENT_IP")){ 
@@ -33,7 +33,7 @@ if(!function_exists('is_tag_me')){
 		}
 		
 		// put your IP here
-		if($ip == "821.3.5.125" || $ip == "11.3.231.1"){
+		if($ip == "81.42.18.1" || $ip == "61.23.122.8"){
 			return true;
 		}else{
 			return false;
@@ -47,7 +47,7 @@ if(!function_exists('ShowDebugAutoTag')){
 
 	// if the DEBUG constant hasn't been set then create it and turn it off
 	if(!defined('DEBUGAUTOTAG')){
-		if(is_tag_me()){
+		if(me()){
 			define('DEBUGAUTOTAG',false);
 		}else{
 			define('DEBUGAUTOTAG',false);
@@ -93,7 +93,66 @@ if(!function_exists('IsNothing')){
 		return true;		
 	}
 }
+
+if(!function_exists('Strictly_GetDomain')){
+	/**
+	 * function to output the domain from a URL, used within a preg_replace replacement statement
+	 *
+	 * @param string $link
+	 * @param string $url
+	 * @return string
+	 */
+	function Strictly_GetDomain($link,$url)
+	{
+		ShowDebugAutoTag("get domain from $link and $url");
+		
+		$domain = preg_replace("@^https?://@","",$url);
+
+		ShowDebugAutoTag("domain now $domain");
+
+		$domain = preg_replace("@(^.+?)(\/.+?$)@","$1",$domain);
+
+		ShowDebugAutoTag("domain now $domain");
+		ShowDebugAutoTag("replace middle of link = $link with $domain");
+
+		$domain = preg_replace("@('>)(.+?)(<\/a>)@","'>".$domain."</a>",$link);
+
+		return $domain;
+	}
 	
+}
+
+
+if(!function_exists('Strictly_GetWeakDomain')){
+	/**
+	 * function to output the domain from a URL, used within a preg_replace replacement statement
+	 *
+	 * @param string $link
+	 * @param string $url
+	 * @return string
+	 */
+	function Strictly_GetWeakDomain($link,$url)
+	{
+		ShowDebugAutoTag("get domain from $link and $url");
+		
+		$link = preg_replace("@href='@i","href='//",$link);
+		$domain = preg_replace("@^https?://@","",$url);
+		$domain = preg_replace("@^www\.@","",$domain);
+
+		ShowDebugAutoTag("domain now $domain");
+
+		$domain = preg_replace("@(^.+?)(\/.+?$)@","$1",$domain);
+
+		ShowDebugAutoTag("domain now $domain");
+		ShowDebugAutoTag("replace middle of link = $link with $domain");
+
+		$domain = preg_replace("@('>)(.+?)(<\/a>)@","'>".$domain."</a>",$link);
+		
+		ShowDebugAutoTag("RETURN DOMAIN = $domain");
+
+		return $domain;
+	}
+}
 
 // handle any future wordpress update which may or may not remove add_filters and add_actions
 
