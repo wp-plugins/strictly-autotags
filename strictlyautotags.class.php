@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.9.0
+ * Version: 2.9.2
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -33,7 +33,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $free_version = "2.9.0";
+	protected $free_version = "2.9.2";
 
 	/**
 	* latest paid for version
@@ -41,7 +41,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $paid_version = "2.9.1";
+	protected $paid_version = "2.9.3";
 
 
 	/**
@@ -1602,6 +1602,19 @@ class StrictlyAutoTags{
 		
 		// ensure all html entities have been decoded
 		$html		= $object->post_content;
+
+		if($this->autodiscover){
+			
+			ShowDebugAutoTag("html B4 replace HTML with . is " . $html);
+
+			// replace certain important HTML markers with . to prevent words that shouldnt be found
+			$html = preg_replace("@</(?:p|div|table|tr|td|h[1-6])>@i",". ",$html);
+			$html = preg_replace("@<[bh]r\s*/?>@i",". ",$html);
+
+			ShowDebugAutoTag("html B4 replace HTML with . is " . $html);
+		}
+
+
 		$article	= html_entity_decode(strip_tags($html));
 		$excerpt	= html_entity_decode($object->post_excerpt);
 		$title		= html_entity_decode($object->post_title);

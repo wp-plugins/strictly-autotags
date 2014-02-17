@@ -5,13 +5,21 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.8.1
-Stable tag: 2.9.0
+Stable tag: 2.9.3
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
 
 == Description ==
-FREE VERSION - Buy version 2.9.1 at http://www.strictly-software.com/plugins/strictly-auto-tags
+PAID FOR VERSION ONLY! Any re-distribution of this plugin without the authorisation of the author will be considered as theft and
+copyright infringment. You always want your site running 24 hours, 7 days a week, therefore it is best to keep to the terms and conditions. 
+
+Each version of this plugin is paid for as with any other product. Therefore version 2.9.2 will be another £40 unless its an upgrade to fix bugs only.
+
+No returns accepted, only bugs fixed when possible. 
+
+PLEASE DO NOT GIVE THIS CODE OUT TO ANYONE ELSE. YOUR WEBSITE AND DETAILS THAT YOU HAVE PROVIDED ME ARE THE ONLY SITES ALLOWED TO USE THE PLUGIN UNLESS YOU HAVE
+GIVEN ME FULL WHOIS INFORMATION AND SERVER/SITE INFO.
 
 Strictly AutoTags is a plugin that scans an English language post for words that could be used as tags and then orders them so that the most relevant
 words get added against the post. Just because a word appears in a post that is already in your list of tags does not mean that it should
@@ -222,7 +230,7 @@ that are currently saved as post tags. This should help the problem where people
 * Updated storage to handle new data-blah and data-blah-blah attributes so they don't get tagged inside images by mistake.
 * Added new tag equivalent functionality using a simple method so that you can match instances of certain words BUT use a different tag for example [Snowden, NSA, PRISM]=[Police State] would allow the system to match the words Snowden, Prism and NSA but add a tag "Police State" (if relevant of course). You can use as many replacements as you want using a simple markup format. Allows for you to add a tag that may never appear in the article but is related to other words that do.
 * I've added an option to set the minimum number of letters a tag must have before it is used as a tag. This applies to stored tags or newly found ones.
-* Added option to tell system whether or not to convert plain text links e.g www.msnbc.com into real links before tagging e.g <a href="http://www.strictly-software">strictly-software</a>
+* Added option to tell system whether or not to convert plain text links e.g www.msnbc.com into real links before tagging e.g <a href="http://www.strictly-software.com">strictly-software.com</a>
 * Created a new name function to match names like al-Qaeda or al-Nusra Front or even words with commas in like 1,000 Guineas which would be tagged as 1000 Guineas.
 * Allows for storing tags in shortcodes amd other special html tags such as headers, anchors, strong and bold tags so that words within those tags don't get messed up.
 
@@ -237,7 +245,6 @@ that are currently saved as post tags. This should help the problem where people
 * includes new method to clean all existing post content by removing strong tags and anchors in one update statement.
 
 = 2.9.0 =
-* Latest Free Version
 * Fixed option that may have caused issues with user capabilities on activation.
 * Added hyphen to chars NOT stripped from StripNonWord function.
 * Tightened up some regular expression for matching names and hyphenated strings.
@@ -252,11 +259,10 @@ that are currently saved as post tags. This should help the problem where people
 * Added new FormatTitle function to help with auto discovery and allow hyphens.
 * A much better debug function if you need to turn it on.
 * Added code to remove any [shortcode] before auto discovery to prevent attributes being found
-* Ask you all to donate me at least a single pound e.g 1 GBP so that I can could stop splitting the plugins into two versions. 150,000 at 1 GBP would mean I could leave my job and work to make brilliant free plugins all the time!
+* Ask you all to donate me at least a single £1 so that I can could stop splitting the plugins into two versions. 150,000 at £1 would mean I could leave my job and work to make brilliant free plugins all the time!
 * Fixed bug in above code due to parameters being round wrong way (Microsoft style) that may have stopped auto discovery from working and changed shortcode storage code to handle non space [shortcode] as well as those containing space [youtube url]
 
 = 2.9.1 =
-* Latest Paid For Version
 * Improved regex for turning strong textual links e.g http://strictly-software.com into clickable links.
 * Added option to turn weak textual links such as www.strictly-software.com into clickable links.
 * Added option to turn plugin into "CLEAN" mode where you can edit an article one by one but on saving it removed any HTML my plugin may have put in previously. Tags remain. This is for big sites where the bulk clean update method may take too long to run.
@@ -272,5 +278,18 @@ that are currently saved as post tags. This should help the problem where people
 * Added new FormatTitle function to help with auto discovery and allow hyphens.
 * A much better debug function if you need to turn it on.
 * Fix for anyone suffering old number style admin levels on activation.
-* Added code to remove any [shortcode] before auto discovery to prevent attributes being found
+* Added code to remove any [shortcodes] before auto discovery to prevent attributes inside them being found
 * Fixed bug in above code due to parameters being round wrong way (Microsoft style) that may have stopped auto discovery from working and changed shortcode storage code to handle non space [shortcode] as well as those containing space [youtube url]
+
+
+= 2.9.2 =
+* Latest Free Version
+* Added code to replace important ending HTML such as closing P DIV TABLE BR HR etc with a period so that auto discovery doesn't create words that shouldn't be there.
+
+= 2.9.3 =
+* Latest Paid For Version
+* Added code to remove common numeric patterns before auto dicovery such as times, dates, distances, odds to prevent numbers being added to words.
+* Added code to remove small monetary amounts £20 etc.
+* Added code to replace important ending HTML such as closing P DIV TABLE BR HR etc with a period so that auto discovery doesn't create words that shouldn't be there.
+* Added an option to turn OFF the matching of numbers during autodiscovery so that if you don't want numbers included in newly found tags they won't be.
+* Added an option to add rel="nofollow" to any links that are turned into clickable links.
