@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.8.1
-Stable tag: 2.9.3
+Stable tag: 2.9.5
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -285,11 +285,24 @@ that are currently saved as post tags. This should help the problem where people
 = 2.9.2 =
 * Latest Free Version
 * Added code to replace important ending HTML such as closing P DIV TABLE BR HR etc with a period so that auto discovery doesn't create words that shouldn't be there.
+* Fixed issue with tag longest word so New York Fire Department will get tagged but New York won't
 
 = 2.9.3 =
-* Latest Paid For Version
 * Added code to remove common numeric patterns before auto dicovery such as times, dates, distances, odds to prevent numbers being added to words.
 * Added code to remove small monetary amounts £20 etc.
 * Added code to replace important ending HTML such as closing P DIV TABLE BR HR etc with a period so that auto discovery doesn't create words that shouldn't be there.
 * Added an option to turn OFF the matching of numbers during autodiscovery so that if you don't want numbers included in newly found tags they won't be.
 * Added an option to add rel="nofollow" to any links that are turned into clickable links.
+
+= 2.9.4 =
+* Latest Free Version
+* Added code to replace important ending HTML such as closing P DIV TABLE BR HR etc with a period so that auto discovery doesn't create words that shouldn't be there.
+* Fixed issue with tag longest word so New York Fire Department will get tagged but New York won't.
+
+= 2.9.5 =
+* Latest Paid For Version
+* Added an option to add rel="nofollow" to any existing links in article that are not deeplinks.
+* Added an option to replace ( ) : ; with . so new words are not accidentally created.
+* Added option to add Top Tags in admin which will be ranked a lot higher than any other tags.
+* Fixed issue with remove basic formatting tags to make it simpler.
+* Fixed issue with tag longest word so New York Fire Department will get tagged but New York won't.

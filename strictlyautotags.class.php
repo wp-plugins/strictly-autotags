@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.9.2
+ * Version: 2.9.4
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -33,7 +33,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $free_version = "2.9.2";
+	protected $free_version = "2.9.4";
 
 	/**
 	* latest paid for version
@@ -41,7 +41,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $paid_version = "2.9.3";
+	protected $paid_version = "2.9.5";
 
 
 	/**
@@ -1947,32 +1947,32 @@ class StrictlyAutoTags{
 		// just because it appears once as that single word would possibly be irrelevant to the posts context.
 		foreach($terms as $term){
 
+			ShowDebugAutoTag("Term = $term");
+
 			// safety check in case some BS gets into the DB!
 			if(strlen($term) > 1){
 
 				// for an accurate search use preg_match_all with word boundaries
 				// as substr_count doesn't always return the correct number from tests I did
 				
-				/*
+				ShowDebugAutoTag("nestedtags = " . $this->nestedtags);
+
+
 				// for exact matches we want to ensure that New York City Fire Department only matches that and not New York City
 				if($this->nestedtags == AUTOTAG_LONG){
 
-					$regex = "@(^|[ .,;:?]\s*|\s+[a-z0-9]+\s+)" . $this->FormatSearchTerm( $term ) . "([ .,;:?]|\s+[a-z0-9]+|$)@";
+					ShowDebugAutoTag("longest word only");
+
+					$regex = "@(^|[.,;:?]\s*|\s+[a-z0-9]+\s+)" . preg_quote( $term ) . "([.,;:?]|\s+[a-z0-9]+|$)@";
 
 				}else{
-					$regex = "@\b" . $this->FormatSearchTerm( $term ) . "\b@";
-				}
-				*/
-				// for exact matches we want to ensure that New York City Fire Department only matches that and not New York City
-				if($this->nestedtags == AUTOTAG_LONG){
+				
+					ShowDebugAutoTag("not longest word only");
 
-					$regex = "@(^|[ .,;:?]\s*|\s+[a-z0-9]+\s+)" . preg_quote( $term ) . "([ .,;:?]|\s+[a-z0-9]+|$)@";
-
-				}else{
-					$regex = "@\b" .preg_quote( $term ) . "\b@";
+					$regex = "@\b" . preg_quote( $term ) . "\b@";
 				}
 
-
+				ShowDebugAutoTag("regex = $regex");
 
 				$addtag		= false;
 				$addarray	= array();
@@ -1983,16 +1983,19 @@ class StrictlyAutoTags{
 
 				// if found then store it with the no of occurances it appeared e.g its hit count
 				if($i > 0){
-
+	
+					ShowDebugAutoTag("found $i occurencces of $term");
+					
 					// if we are tweaking the hitcount e.g for ranking title tags higher
 					if($tweak > 0){
 						$i = $i + $tweak;
 					}
 
 					// do we add all tags whether or not they appear nested inside other matches
-					// do we add all tags whether or not they appear nested inside other matches
-					if($this->nestedtags == AUTOTAG_BOTH || $this->nestedtags == AUTOTAG_LONG){
+					if($this->nestedtags == AUTOTAG_BOTH ){
 	
+						ShowDebugAutoTag("ADD BOTH INCLUDING INSIDE OTHER MATCHES");
+
 						// if we already have this term in our stack then update the counter
 						if(isset($tagstack[$term])){
 						
@@ -2008,11 +2011,13 @@ class StrictlyAutoTags{
 								$addtag		= true;									
 							}
 						}else{
+							
+							ShowDebugAutoTag("make sure $term is not a noise word");
 
 							// ensure noise words are never added
 							if(!$this->IsNoiseWord($term)){
 
-								ShowDebugAutoTag("Add term = $term count = $newcount");
+								ShowDebugAutoTag("Add term = $term count = $i");
 
 								// add term and hit count to our array
 								$addarray	= array("term"=>$term,"count"=>$i);
@@ -2020,11 +2025,69 @@ class StrictlyAutoTags{
 
 							}
 						}
+					// only tag longest
+					}else if($this->nestedtags == AUTOTAG_LONG){
+						ShowDebugAutoTag("LONGEST TAG VERSION ONLY");
+
+						$ignore = false;
+
+
+						ShowDebugAutoTag("loop looking for existing shorter tags we remove to use the longer one");
+
+						// loop through existing tags checking for nested matches e.g New York appears in New York City 						
+						foreach($tagstack as $key=>$value){
+
+							$oldterm = $value['term'];
+							$oldcount= $value['count'];
+			
+							ShowDebugAutoTag("is $oldterm in new term $term");
+
+							// check whether one of our old terms is in our new one
+							if(stripos($term,$oldterm)!==false && $term != $oldterm){
+								
+								ShowDebugAutoTag("we found $oldterm inside $term so remove old term and use new one");
+
+								// we found an old term inside our new longer one and as we are keeping the longest version we need to add
+								// the other tags hit count before deletng it as if it was a ranked title we want this version to show
+								$i = $i + (int)$oldcount;
+
+								// remove our previously stored tag as we only want the longest version						
+								unset($tagstack[$key]);
+							
+							// check whether our old term is in our new one as it means the new one we found is not the longest!
+							}elseif(stripos($oldterm,$term)!==false && $term != $oldterm){
+								
+								ShowDebugAutoTag("our new term $term is in $oldterm so keep longest version and ignore new term as its not longest!");
+
+								// yes it is so keep our longest version in the stack and ignore our new term								
+								$ignore = true;
+								break;
+							}
+						}			
+						
+						
+						// do we add our new term
+						if(!$ignore){		
+							// ensure noise words are never added
+							if(!$this->IsNoiseWord($term)){
+
+								ShowDebugAutoTag("Add term = $term count = $i");
+
+								// add term and hit count to our array
+								$addarray	= array("term"=>$term,"count"=>$i);
+								$addtag		= true;	
+							}
+						}
+					
 					// must be AUTOTAG_SHORT
 					}else{
 
+						ShowDebugAutoTag("SHORT TAG VERSION ONLY");
+
 						$ignore = false;
 						
+						ShowDebugAutoTag("loop looking for existing longer tags we remove to use the shorter one");
+
 						// loop through existing tags checking for nested matches e.g New York appears in New York City 						
 						foreach($tagstack as $key=>$value){
 
@@ -2032,8 +2095,10 @@ class StrictlyAutoTags{
 							$oldcount= $value['count'];
 			
 							// check whether our new term is already in one of our old terms
-							if(stripos($oldterm,$term)!==false){
+							if(stripos($oldterm,$term)!==false && $term != $oldterm){
 								
+								ShowDebugAutoTag("we found $term inside $oldterm so remove old term and use new one");
+
 								// we found our term inside a longer one and as we are keeping the shortest version we need to add
 								// the other tags hit count before deletng it as if it was a ranked title we want this version to show
 								$i = $i + (int)$oldcount;
@@ -2042,14 +2107,18 @@ class StrictlyAutoTags{
 								unset($tagstack[$key]);
 							
 							// check whether our old term is in our new one
-							}elseif(stripos($term,$oldterm)!==false){
+							}elseif(stripos($term,$oldterm)!==false && $term != $oldterm){
 								
+								ShowDebugAutoTag("our old term $oldterm is in $term so keep short version and ignore new term as its not shortest!");
+
 								// yes it is so keep our short version in the stack and ignore our new term								
 								$ignore = true;
 								break;
 							}
 						}
 					
+						
+						
 						// do we add our new term
 						if(!$ignore){		
 							// ensure noise words are never added
@@ -2068,7 +2137,7 @@ class StrictlyAutoTags{
 
 						if($this->maxtagwords > 0){
 
-							//ShowDebugAutoTag("make sure the tag = " .$addarray['term'] . " is less than " . $this->maxtagwords . " words long");
+							ShowDebugAutoTag("make sure the tag = " .$addarray['term'] . " is less than or equal to " . $this->maxtagwords . " words long");
 
 							$wordcount = str_word_count($addarray['term']);
 
