@@ -2683,6 +2683,7 @@ class StrictlyAutoTags{
 							<li>Being able to remove basic formatting tags from posts you may have imported such as &lt;I&gt;, &lt;B&gt;, &lt;SPAN&gt; and &lt;FONT&gt; tags.</li>
 							<li>Being able to set a minimum word limit that a tag must have to be included during auto-discovery.</li>
 							<li>New functions specifically designed to match trickier words such as <strong>World War II</strong>, <strong>al-Nusra Front</strong>, <strong>1,000 Guineas</strong> or <strong>Pope John Paul II</strong>.</li>
+							<li>The ability to add a list of site important keywords e.g tags that will be ranked with a much higher score than titles or headers to get them matched against a post.</li>
 							</ul>
 							<p>If you feel any of these options could be useful to you then you can purchase the latest edition of the plugin from my site for &pound;40 or you can start off the donation rally and hopefully others will follow you.<p><p>To buy the latest edition of the plugin now go to <a href="http://www.strictly-software.com/plugins/strictly-auto-tags">www.strictly-software.com/plugins/strictly-auto-tags</a> and purchase it now.</p>';		
 
