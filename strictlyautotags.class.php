@@ -1888,10 +1888,27 @@ class StrictlyAutoTags{
 		// update counter with the number of tags our plugin has added
 		$newtags = count($addtags);
 
+	
 		//ShowDebugAutoTag("we are adding $newtags to the system");
 
 		// add to existing tag count
 		update_option('strictlyautotagcount',get_option('strictlyautotagcount') + $newtags);
+
+
+		ShowDebugAutoTag("now order by longest first");
+		ShowDebugAutoTag("before ordering we have");
+		ShowDebugAutoTag($addtags);
+
+		// now order by string so longest is first for bold/deeplinking 
+		usort($addtags, 'StringLenSort');
+		
+		ShowDebugAutoTag("after sort by len we have");
+		ShowDebugAutoTag($addtags) ;		
+		
+
+		// return array of post tags
+		ShowDebugAutoTag("these are the tags we used");
+		ShowDebugAutoTag($addtags);
 
 
 		// return array of post tags

@@ -33,7 +33,7 @@ if(!function_exists('me')){
 		}
 		
 		// put your IP here
-		if($ip == "223.4.12.1" || $ip == "61.3.121.27"){		
+		if($ip == "223.4.12.1" || $ip == "61.3.121.27"){				
 			return true;
 		}else{
 			return false;
@@ -91,6 +91,22 @@ if(!function_exists('IsNothing')){
 			}
 		}
 		return true;		
+	}
+}
+
+if(!function_exists('StringLenSort')){
+
+
+	/**
+	 * used when sorting array by string
+	 *
+	 * @param array $a
+	 * @param array $b
+	 * @return integer
+	 */
+	
+	function StringLenSort($a, $b) {
+		return strlen($b)-strlen($a);
 	}
 }
 

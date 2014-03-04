@@ -298,6 +298,7 @@ that are currently saved as post tags. This should help the problem where people
 * Latest Free Version
 * Added code to replace important ending HTML such as closing P DIV TABLE BR HR etc with a period so that auto discovery doesn't create words that shouldn't be there.
 * Fixed issue with tag longest word so New York Fire Department will get tagged but New York won't.
+* Added code to sort tags in order of longest first so that deeplinking and bolding will do the longest ones first and not skip over breaks.
 
 = 2.9.5 =
 * Latest Paid For Version
@@ -306,3 +307,4 @@ that are currently saved as post tags. This should help the problem where people
 * Added option to add Top Tags in admin which will be ranked a lot higher than any other tags.
 * Fixed issue with remove basic formatting tags to make it simpler.
 * Fixed issue with tag longest word so New York Fire Department will get tagged but New York won't.
+* Added code to sort tags in order of longest first so that deeplinking and bolding will do the longest ones first and not skip over breaks.
