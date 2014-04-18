@@ -4,7 +4,7 @@ Donate link: http://www.strictly-software.com/donate
 Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
-Tested up to: 3.8.1
+Tested up to: 3.8.3
 Stable tag: 2.9.5
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
@@ -59,6 +59,8 @@ This section describes how to install the plugin and get it working.
 
 Help 
 
+Read this article and supply all the information you can please http://blog.strictly-software.com/2014/04/how-to-send-developer-useful.html
+
 1. If you add a post but no tags are added then it does not mean the plugin is not working just that no tags could be found to associate with the post.
 
 2. Test the plugin is working by creating a new post with the following content and saving it as a draft:
@@ -86,6 +88,19 @@ The CIA apologised for the allegations and promised to review its policy of usin
 9. Please check existing support tickets before writing a new support ticket as the problem may have already been answered. 
 
 10. Always disable all other plugins and leave just Strictly AutoTags on before considering it the likely cause of a problem.
+
+11. If you are going to write a new support question that hasn't already been answered can you please provided the following information all which can be got from your host, WP, plugins, DB or a combination of e.g load a version of phpinfo.php onto your site but call it something else so hackers cannot guess it e.g my-3467phpINF.php etc
+   -Version of PHP you are running (make sure it's compatible with the code)
+   -Version of MySQL you are running (make sure it's compatible with the code)
+   -Any error message you get when you run the routine that breaks.
+   -The time it takes to run before breaking.
+   -If you can hit F12 and view the console any Nework/JavaSccript errors you may have - also if you have lots of 404's due to missing files fix those as that will cause overhead. If you don't have them just create blank file with the same name.
+   -If you can code, turn on the debug constant in the plugin, change your IP in the MyIP function to your own IP address (just type "What is my IP" into Google to get a valu, re-upload the file (after backing up) and send me the output of the debug.
+   -If you have lots of browser add-ons try it in a fresh install of a new browser, e.g download Opera/Safari for windows and test it on that.
+   -If possible install HTTP Fox on FireFox, open it, and then press play just before doing the action that causes the problem. This will give you all the HTTP requests and responses from the server. Look for any 500 status codes or errors. Send me anything unusual - and only related to my site/plugin as it will also record all the plugin guff from your FireFox extensions as well.
+   -The more information the better, so screeen shots, video casts (free online, click play, do action, stop, send link etc).
+
+To help ME find YOUR error and fix it easier and quicker please read this guide so you can provide me with the information I need http://blog.strictly-software.com/2014/04/how-to-send-developer-useful.html
 
 == Changelog ==
 
