@@ -14,12 +14,14 @@ Strictly AutoTags is a plugin that automatically adds the most relevant tags to 
 PAID FOR VERSION ONLY! Any re-distribution of this plugin without the authorisation of the author will be considered as theft and
 copyright infringment. You always want your site running 24 hours, 7 days a week, therefore it is best to keep to the terms and conditions. 
 
-Each version of this plugin is paid for as with any other product. Therefore version 2.9.2 will be another £40 unless its an upgrade to fix bugs only.
+Each version of this plugin is paid for as with any other product. Therefore version 2.9.6 will be another £40 unless its an upgrade to fix bugs only.
 
 No returns accepted, only bugs fixed when possible. 
 
 PLEASE DO NOT GIVE THIS CODE OUT TO ANYONE ELSE. YOUR WEBSITE AND DETAILS THAT YOU HAVE PROVIDED ME ARE THE ONLY SITES ALLOWED TO USE THE PLUGIN UNLESS YOU HAVE
 GIVEN ME FULL WHOIS INFORMATION AND SERVER/SITE INFO.
+
+Now available for sale on https://www.etsy.com/uk/listing/190328462/strictly-autotags as well if you are interested in the premium version.
 
 Strictly AutoTags is a plugin that scans an English language post for words that could be used as tags and then orders them so that the most relevant
 words get added against the post. Just because a word appears in a post that is already in your list of tags does not mean that it should
