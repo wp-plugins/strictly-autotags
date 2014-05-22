@@ -4,7 +4,7 @@ Donate link: http://www.strictly-software.com/donate
 Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
-Tested up to: 3.8.3
+Tested up to: 3.9.1
 Stable tag: 2.9.5
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
