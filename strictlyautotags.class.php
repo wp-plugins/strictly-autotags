@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.9.4
+ * Version: 2.9.6
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -33,7 +33,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $free_version = "2.9.4";
+	protected $free_version = "2.9.6";
 
 	/**
 	* latest paid for version
@@ -41,7 +41,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $paid_version = "2.9.5";
+	protected $paid_version = "2.9.7";
 
 
 	/**
@@ -946,14 +946,18 @@ class StrictlyAutoTags{
 			$sqlin = "'" . preg_replace("@\|@","','",addslashes($noisewords)) . "'";
 
 			
-			ShowDebugAutoTag("IN is now $sqlin");
-			
+			ShowDebugAutoTag("IN is now $sqlin");	
+		
+
 			// cannot use the prepare function as it will add extra slashes and quotes
+			// need to first delete any records that are only used as post_tags and dont have shared taxonomies
 			$sql = sprintf("DELETE a,c
-							FROM	{$wpdb->terms} AS a
-							JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+							FROM {$wpdb->terms} AS a
+							JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id			
+							LEFT JOIN {$wpdb->wp_term_taxonomy} as b ON a.term_id = b.term_id AND b.taxonomy != 'post_tag'
 							WHERE (
 									c.taxonomy = 'post_tag'
+									AND b.term_id IS NULL
 									AND  a.Name IN(%s)
 								);",$sqlin);
 		
@@ -964,12 +968,33 @@ class StrictlyAutoTags{
 		
 			if($deleted >0){
 				
-				// clear object cache
-				
-				unset($wp_object_cache->cache);
-				
-				$wp_object_cache->cache = array();
+				// divide by two as we are deleting 2 records at a time
+				if($deleted % 2 == 0)
+				{
+					$deleted = $deleted / 2;
+				}
+			}
 
+			// now do any records that DO have shared taxonomies and just delete the term_taxonomy record
+			$sql = sprintf("DELETE c
+							FROM {$wpdb->terms} AS a
+							JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id			
+							WHERE (
+									c.taxonomy = 'post_tag'
+									AND  a.Name IN(%s)
+								);",$sqlin);
+		
+
+			ShowDebugAutoTag($sql);
+
+			$deleted = $deleted + $wpdb->query($sql);	
+
+
+			if($deleted >0){
+				// clear object cache				
+				unset($wp_object_cache->cache);
+					
+				$wp_object_cache->cache = array();
 			}
 
 			ShowDebugAutoTag("SQL Query deleted this no of rows == " . $deleted);
@@ -996,14 +1021,15 @@ class StrictlyAutoTags{
 
 		$updated = 0;
 
-		// in future rewrite this with a branch so that if we are looking at posts with no tags then
-		// we only return from the DB those posts that have no tags
-
-		$sql = $wpdb->prepare("DELETE a,c
+		
+		// we do 2 deletes one to remove both records where only post_tag taxonomies exist then one for shared
+		$sql = $wpdb->prepare("DELETE   a,c
 								FROM	{$wpdb->terms} AS a
-								JOIN	{$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+								JOIN	{$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id		
+								LEFT JOIN {$wpdb->wp_term_taxonomy} as b ON a.term_id = b.term_id AND b.taxonomy != 'post_tag'
 								WHERE (
 										c.taxonomy = 'post_tag'
+										AND b.term_id IS NULL
 										AND  c.count <= %d
 									);",$notags);
 		
@@ -1014,12 +1040,37 @@ class StrictlyAutoTags{
 		
 		if($updated >0){
 			
+			// divide by two as we are deleting 2 records!
+			if($updated >0){
+
+				// divide by two as we are deleting 2 records at a time
+				if($updated % 2 == 0)
+				{
+					$updated = $updated / 2;
+				}
+			}
+		}
+
+		// now do the delete for shared taxonomies so we just delete the term_taxonomy record
+		$sql = $wpdb->prepare( "DELETE  c
+								FROM	{$wpdb->terms} AS a
+								JOIN	{$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id				
+								WHERE (
+										c.taxonomy = 'post_tag'
+										AND  c.count <= %d
+									);",$notags);
+
+		
+		ShowDebugAutoTag($sql);
+
+		$updated = $updated + $wpdb->query($sql);	
+
+		if($updated >0){
 			// clear object cache
 				
 			unset($wp_object_cache->cache);
 			
 			$wp_object_cache->cache = array();
-
 		}
 
 		ShowDebugAutoTag("SQL Query returns " . $updated);
@@ -2803,14 +2854,14 @@ class StrictlyAutoTags{
 
 		echo	'<form name="cleanup" id="cleanup" method="post">
 				<div class="postbox">						
-				<h3 class="hndle">'.__('Clean Up Tag Database', 'strictlyautotags').'</h3>					
+				<h3 class="hndle">'.__('Clean Up Tag Database (Backup Database First!)', 'strictlyautotags').'</h3>					
 				<div class="inside">
 				'. wp_nonce_field("cleanup","strictlycleanupnonce",false,false) .'				
 				<p>'.sprintf(__('You currently have %d tags that are only associated with %d or less posts.', 'strictlyautotags'), $underused,$notags).'</p>
 				<div class="tagopt">
 				<label for="strictlyautotags-cleanupposts">'.__('No of Tagged Posts','strictlyautotags').'</label>
 				<input type="text" name="strictlyautotags-cleanupposts" id="strictlyautotags-cleanupposts" value="' . esc_attr($notags) . '" />		
-				<span class="notes">'.__('Strictly AutoTags can add a lot of tags into your system very quickly and to keep things fast and your tag numbers down it is advisable to clean up your tags reguarly. You may find that you have lots of articles with only one post related to a tag or you may have deleted articles which will have created orphan tags not associated with any articles at all. You should consider deleting redudant or under used tags if you feel they are not providing any benefit to your site. Change the number to the amount of posts to delete tags for e.g selecting 1 means any tags that are associated with 0 or 1 posts will be removed. If you want to know which tags to delete you should use the standard Wordpress Post Tags admin option to manually check and remove tags one by one.', 'strictlyautotags').'</span>
+				<span class="notes">'.__('Strictly AutoTags can add a lot of tags into your system very quickly and to keep things fast and your tag numbers down it is advisable to clean up your tags reguarly. You may find that you have lots of articles with only one post related to a tag or you may have deleted articles which will have created orphan tags not associated with any articles at all. You should consider deleting redudant or under used tags if you feel they are not providing any benefit to your site. Change the number to the amount of posts to delete tags for e.g selecting 1 means any tags that are associated with 0 or 1 posts will be removed. If you want to know which tags to delete you should use the standard Wordpress Post Tags admin option to manually check and remove tags one by one. You should always backup your database before removing any data from the system!', 'strictlyautotags').'</span>
 				</div>
 				<p class="submit"><input value="'.__('Clean Tags', 'strictlyautotags').'" type="submit" name="CleanSubmit" id="CleanSubmit" onclick="return confirm(\'Are you sure you want to remove these tags from your system?\');"></p>
 				</div></div></form>';

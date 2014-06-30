@@ -5,7 +5,7 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.9.1
-Stable tag: 2.9.5
+Stable tag: 2.9.7
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
@@ -312,16 +312,27 @@ that are currently saved as post tags. This should help the problem where people
 * Added an option to add rel="nofollow" to any links that are turned into clickable links.
 
 = 2.9.4 =
-* Latest Free Version
 * Added code to replace important ending HTML such as closing P DIV TABLE BR HR etc with a period so that auto discovery doesn't create words that shouldn't be there.
 * Fixed issue with tag longest word so New York Fire Department will get tagged but New York won't.
 * Added code to sort tags in order of longest first so that deeplinking and bolding will do the longest ones first and not skip over breaks.
 
 = 2.9.5 =
-* Latest Paid For Version
 * Added an option to add rel="nofollow" to any existing links in article that are not deeplinks.
 * Added an option to replace ( ) : ; with . so new words are not accidentally created.
 * Added option to add Top Tags in admin which will be ranked a lot higher than any other tags.
 * Fixed issue with remove basic formatting tags to make it simpler.
 * Fixed issue with tag longest word so New York Fire Department will get tagged but New York won't.
 * Added code to sort tags in order of longest first so that deeplinking and bolding will do the longest ones first and not skip over breaks.
+
+= 2.9.6 =
+* Latest Free Version
+* Fixed bug with delete statements that could have deleted shared taxonomies. Added LEFT JOIN in to delete both records only if they are not shared then another DELETE to remove just the taxonomy record for post_tags if they are shared.
+* Fixed deletion issue with noise words.
+
+= 2.9.7 =
+* Latest Paid For Version
+* Fixed bug with delete statements that could have deleted shared taxonomies. Added LEFT JOIN in to delete both records only if they are not shared then another DELETE to remove just the taxonomy record for post_tags if they are shared.
+* Fixed deletion issue with noise words.
+* Fixed deletion issue with clean tags option.
+* Added note to users that they should always backup their database before removing data.
+* Fixed code that showed number of deleted records to divide by two when both tables are affected by the deletion statement
