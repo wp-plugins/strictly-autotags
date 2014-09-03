@@ -954,7 +954,7 @@ class StrictlyAutoTags{
 			$sql = sprintf("DELETE a,c
 							FROM {$wpdb->terms} AS a
 							JOIN {$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id			
-							LEFT JOIN {$wpdb->wp_term_taxonomy} as b ON a.term_id = b.term_id AND b.taxonomy != 'post_tag'
+							LEFT JOIN {$wpdb->term_taxonomy} as b ON a.term_id = b.term_id AND b.taxonomy != 'post_tag'
 							WHERE (
 									c.taxonomy = 'post_tag'
 									AND b.term_id IS NULL
@@ -1026,7 +1026,7 @@ class StrictlyAutoTags{
 		$sql = $wpdb->prepare("DELETE   a,c
 								FROM	{$wpdb->terms} AS a
 								JOIN	{$wpdb->term_taxonomy} AS c ON a.term_id = c.term_id		
-								LEFT JOIN {$wpdb->wp_term_taxonomy} as b ON a.term_id = b.term_id AND b.taxonomy != 'post_tag'
+								LEFT JOIN {$wpdb->term_taxonomy} as b ON a.term_id = b.term_id AND b.taxonomy != 'post_tag'
 								WHERE (
 										c.taxonomy = 'post_tag'
 										AND b.term_id IS NULL
@@ -2473,9 +2473,9 @@ class StrictlyAutoTags{
 				ShowDebugAutoTag("We deleted " . $deleted . " tags");
 
 				if($deleted == 0){
-					$msg = sprintf(__('No Tags were removed','strictlyautotags'),$deleted);
+					$msg = __('No Tags were removed','strictlyautotags');
 				}else{
-					$msg = __('All relevant Tags have been removed','strictlyautotags');
+					$msg = sprintf(__('%d relevant Tags have been removed','strictlyautotags'),$deleted);
 				}
 			}
 		}
