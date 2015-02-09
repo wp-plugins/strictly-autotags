@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Strictly Auto Tags
- * Version: 2.9.6
+ * Version: 2.9.8
  * Plugin URI: http://www.strictly-software.com/plugins/strictly-auto-tags/
  * Description: This plugin automatically detects tags to place against posts using existing tags as well as a simple formula that detects common tag formats such as Acronyms, names and countries. Whereas other smart tag plugins only detect a single occurance of a tag within a post this plugin will search for the most used tags within the content so that only the most relevant tags get added.
  * Author: Rob Reid
@@ -33,7 +33,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $free_version = "2.9.6";
+	protected $free_version = "2.9.8";
 
 	/**
 	* latest paid for version
@@ -41,7 +41,7 @@ class StrictlyAutoTags{
 	* @access protected
 	* @var string
 	*/
-	protected $paid_version = "2.9.7";
+	protected $paid_version = "2.9.9";
 
 
 	/**
@@ -2273,7 +2273,7 @@ class StrictlyAutoTags{
 
 			// check defaults in case of new functionality added to plugin after installation
 			if(IsNothing($options['nestedtags'])){
-				$options['nestedtags'] = AUTOTAGLONG;
+				$options['nestedtags'] = AUTOTAG_LONG;
 			}
 
 			if(IsNothing($options['noisewords'])){
@@ -2288,7 +2288,7 @@ class StrictlyAutoTags{
 				$options['ignorepercentage'] = 50;
 			}
 
-			if(IsNothing($options['rankhtml'])){
+			if(!isset($options['rankhtml'])){
 				$options['rankhtml'] = true;
 			}
 
@@ -2296,7 +2296,7 @@ class StrictlyAutoTags{
 				$options['maxtagwords'] = 0;
 			}
 
-			if(IsNothing($options['boldtaggedwords'])){
+			if(!isset($options['boldtaggedwords'])){
 				$options['boldtaggedwords'] = false;
 			}
 
@@ -2304,7 +2304,7 @@ class StrictlyAutoTags{
 
 
 			// paid for special options
-			if(IsNothing($options['taglinks'])){
+			if(!isset($options['taglinks'])){
 
 				ShowDebugAutoTag("options['taglinks'] is nothing set to false");
 
@@ -2313,14 +2313,14 @@ class StrictlyAutoTags{
 
 		//	ShowDebugAutoTag("IN GetOptions do we deeplink = " . intval($options['taglinks']));
 
-			if(IsNothing($options['removestrictlytagsandlinks'])){
+			if(!isset($options['removestrictlytagsandlinks'])){
 
 				ShowDebugAutoTag("options['removestrictlytagsandlinks'] is nothing set to false");
 
 				$options['removestrictlytagsandlinks'] = false;
 			}
 			
-			if(IsNothing($options['skiptaggedposts'])){
+			if(!isset($options['skiptaggedposts'])){
 
 				ShowDebugAutoTag("options['skiptaggedposts'] is nothing set to true");
 
@@ -2496,7 +2496,7 @@ class StrictlyAutoTags{
 			$updated = $this->ReTagPosts($allposts);
 
 			if($updated == 0){
-				$msg = sprintf(__('No Posts were re-tagged','strictlyautotags'),$updated);
+				$msg = sprintf(__('No Posts were re-tagged - If you think this an error please try the test post in the Readme.txt file with AutoDiscovery on to check the tagging works','strictlyautotags'),$updated);
 			}else if($updated == 1){
 				$msg = sprintf(__('1 Post was re-tagged','strictlyautotags'),$updated);
 			}else{
@@ -2520,7 +2520,7 @@ class StrictlyAutoTags{
 			$updated = $this->ReLinkAndTagPosts($allposts);
 
 			if($updated == 0){
-				$msg = sprintf(__('No Posts were re-tagged or deeplinked','strictlyautotags'),$updated);
+				$msg = sprintf(__('No Posts were re-tagged or deeplinked - If you think this an error please try the test post in the Readme.txt file with AutoDiscovery on to check the tagging works','strictlyautotags'),$updated);
 			}else if($updated == 1){
 				$msg = sprintf(__('1 Post was re-tagged and deeplinkedd','strictlyautotags'),$updated);
 			}else{
@@ -2743,25 +2743,31 @@ class StrictlyAutoTags{
 			echo	'<div class="postbox">						
 						<h3 class="hndle">'.sprintf(__('Strictly AutoTags - Free Version %s (Most Recent Version is %s)', 'strictlyautotags'),$this->free_version,$this->paid_version).'</h3>					
 						<div class="inside">
-							<p>' . __('You are using the free version of this software. I would like to keep just one version of this code running instead of two as it\'s a lot of work however as no-one donates I cannot afford to. If you find this plugin usefull just think - if everyone had donated just even a single &pound;1 how much time I could spend on this project with over 150,000 downloads so far. This way I could make it a much better plugin for everyone giving everybody the full range of options.') . '</p>
-							<p><strong>' . __('At the moment you are missing out on the following options.') . '</strong></p>
-							<ul><li>Being able to use tag equivalency e.g if certain words are found e.g NSA, Snowden, PRISM add the tag Privacy to an article.</li>
+							<p>' . __('You are using the free version of this software. I would like to keep just one version of this code running instead of two as it\'s a lot of work however as no-one donates I cannot afford to. If you find this plugin usefull just think - if you all had donated me a single &pound;1 how much time I could spend on this project with over 150,000 downloads to make it a much better plugin for everyone and give everybody the full range of options?') . '</p>
+							<p>' . __('At the moment you are missing out on the following options.') . '</p>
+							<ul><li>Being able to use tag equivalency e.g if certain words are found e.g NSA, Snowden, PRISM so add the tag Privacy.</li>
 							<li>Being able to automatically turn text such as http://mysite.com or www.mysite.com into real clickable anchor tags.</li>
 							<li>Being able to turn on &quot;Clean Edit Mode&quot; and edit a post to remove any HTML formatting the AutoTag plugin adds in if you need to.</li>
 							<li>Being able to remove basic formatting tags from posts you may have imported such as &lt;I&gt;, &lt;B&gt;, &lt;SPAN&gt; and &lt;FONT&gt; tags.</li>
 							<li>Being able to set a minimum word limit that a tag must have to be included during auto-discovery.</li>
+							<li>Being able to override the value for siteurl in case you have an odd setup and need to hardcode your site URL in front of deeplinked tags.</li>
 							<li>New functions specifically designed to match trickier words such as <strong>World War II</strong>, <strong>al-Nusra Front</strong>, <strong>1,000 Guineas</strong> or <strong>Pope John Paul II</strong>.</li>
-							<li>The ability to add a list of site important keywords e.g tags that will be ranked with a much higher score than titles or headers to get them matched against a post.</li>
 							</ul>
-							<p>If you feel any of these options could be useful to you then you can purchase the latest edition of the plugin from my site for &pound;40 or you can start off the donation rally and hopefully others will follow you.<p><p>To buy the latest edition of the plugin now go to <a href="http://www.strictly-software.com/plugins/strictly-auto-tags">www.strictly-software.com/plugins/strictly-auto-tags</a> and purchase it now.</p>';		
+							<p>Please could you "like" my Facebook page at <a target="_blank" rel="nofollow" href="https://www.facebook.com/strictlysoftware">Facebook/strictlysoftware</a> where you will find lots of information on the plugins.</p>
+							<p><strong>If you need help setting up or configuring the plugin for your site you can purchase a <a target="_blank" rel="nofollow"  href="https://www.etsy.com/uk/listing/190480863/this-coupon-goes-with-the-strictly" rel="nofollow" title="Buy a coupon that will allow me to conigure the plugin on your site">configuration coupon on Etsy.com</a> which will allow you to get me to help you set-up this plugin for your site with the best options and test that it is working correctly.</p>
+							<p>If you feel any of these options could be useful to you then you can purchase the latest edition of the plugin from my site for &pound;40 or you can start off the donation rally and hopefully others will follow you.<p>
+							<p>To buy the latest edition of the plugin you can either go to <a href="http://www.strictly-software.com/plugins/strictly-auto-tags">www.strictly-software.com/plugins/strictly-auto-tags</a> and purchase it or visit my <a href="https://www.etsy.com/uk/shop/StrictlySoftware" rel="nofollow" title="My Etsy shop with Strictly-Software automation products and configuration coupons">Etsy.com shop</a> to buy more Strictly-Software products.</p>';		
 
 		}else{
 			
 			echo	'<div class="postbox">						
 						<h3 class="hndle">'.sprintf(__('Strictly AutoTags - Paid Version %s (Thank you!)', 'strictlyautotags'),$this->paid_version).'</h3>					
-						<div class="inside">';		
+						<div class="inside">
+							<p>Please could you "like" my Facebook page at <a target="_blank" rel="nofollow" href="https://www.facebook.com/strictlysoftware">Facebook/strictlysoftware</a> where you will find lots of information on the plugin including detailed help articles.</p>
+							<p>If you need help setting up or configuring the plugin for your site you can purchase a <a target="_blank" rel="nofollow" href="https://www.etsy.com/uk/listing/190480863/this-coupon-goes-with-the-strictly" rel="nofollow" title="Buy a coupon that will allow me to conigure the plugin on your site">configuration coupon on Etsy.com</a> which will allow you to get me to help you set-up this plugin for your site with the best options and test that it is working correctly.</p>';		
 
 		}
+
 
 		// get no of underused tags
 		$underused		= $this->GetUnderusedTags($notags);
@@ -2812,7 +2818,14 @@ class StrictlyAutoTags{
 				</div>';
 
 				
-		
+		echo	'<div class="postbox">						
+					<h3 class="hndle">'.__('Test Post For Tagging', 'strictlyautotags') .'</h3>					
+					<div class="inside">
+						<p>If you are having problems generating tags then please create a test post with the following text to see if the plugin is working. Ensure Auto Disovery is enabled when you do this test. A draft posting will be enough to see if tags are generated.</p><p>If no tags are generated then you have an issue. If tags are generated then the plugin works and if you still have problems then do the standard tests which are listed in the Readme.txt file and are on my <a href="http://facebook/strictlysoftware">Facebook/strictlysoftware</a> page at <a href="https://www.facebook.com/strictlysoftware/posts/364830366999257" title="Fixes for problems with Strictly AutoTags">Strictly AutoTag Debugging.</a></p>
+						<p><strong>Post Title:</strong> The CIA now admits responsibility for torture at Guantanamo Bay</p>
+						<p><strong>Article Content:</strong><pre>Today the CIA admitted it was responsible for the recent accusations of torture at Guantanamo Bay.<br />Billy Bob Johnson, the chief station manager at the Guantanamo Bay prison said that the USA had to hold its hands up and admit that it had allowed its CIA operatives to feed the prisoners nothing but<br />McDonalds and Kentucky Fried Chicken meals whilst forcing them to listen to Christian Rock Music for up to 20 hour periods at a time without any break. The CIA apologised for the allegations and promised<br />to review its policy of using fast food and Christian Rock Music as a method of torture.</pre></p><p>Save this as a draft post and see what tags appear. As long as they are not in the noise word lists and you have auto discovery on at least a few tags should be found.</p>
+					</div>
+				</div>';
 
 		
 		echo	'<form name="retag" id="retag" method="post">

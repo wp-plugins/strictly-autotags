@@ -5,12 +5,13 @@ Plugin Home: http://www.strictly-software.com/plugins/strictly-auto-tags
 Tags: tags, autotag, taxonomy, smarttag
 Requires at least: 2.0.2                    
 Tested up to: 3.9.1
-Stable tag: 2.9.7
+Stable tag: 2.9.9
 
 Strictly AutoTags is a plugin that automatically adds the most relevant tags to posts.
 
-== Description ==
+Please help me and the plugin by "liking" my Facebook/strictlysoftware page at https://www.facebook.com/strictlysoftware/
 
+== Description ==
 PAID FOR VERSION ONLY! Any re-distribution of this plugin without the authorisation of the author will be considered as theft and
 copyright infringment. You always want your site running 24 hours, 7 days a week, therefore it is best to keep to the terms and conditions. 
 
@@ -21,8 +22,7 @@ No returns accepted, only bugs fixed when possible.
 PLEASE DO NOT GIVE THIS CODE OUT TO ANYONE ELSE. YOUR WEBSITE AND DETAILS THAT YOU HAVE PROVIDED ME ARE THE ONLY SITES ALLOWED TO USE THE PLUGIN UNLESS YOU HAVE
 GIVEN ME FULL WHOIS INFORMATION AND SERVER/SITE INFO.
 
-You can buy the premium plugin from my website http://www.strictly-software.com/plugins/strictly-auto-tags
-It is also now available for sale on https://www.etsy.com/uk/listing/190328462/strictly-autotags
+Now available for sale on https://www.etsy.com/uk/listing/190328462/strictly-autotags as well if you are interested in the premium version.
 
 Strictly AutoTags is a plugin that scans an English language post for words that could be used as tags and then orders them so that the most relevant
 words get added against the post. Just because a word appears in a post that is already in your list of tags does not mean that it should
@@ -92,7 +92,9 @@ The CIA apologised for the allegations and promised to review its policy of usin
 
 10. Always disable all other plugins and leave just Strictly AutoTags on before considering it the likely cause of a problem.
 
-11. If you are going to write a new support question that hasn't already been answered can you please provided the following information all which can be got from your host, WP, plugins, DB or a combination of e.g load a version of phpinfo.php onto your site but call it something else so hackers cannot guess it e.g my-3467phpINF.php etc
+11. Read the post on https://www.facebook.com/strictlysoftware/posts/364830366999257 to see if this helps you.
+
+12. If you are going to write a new support question that hasn't already been answered can you please provided the following information all which can be got from your host, WP, plugins, DB or a combination of e.g load a version of phpinfo.php onto your site but call it something else so hackers cannot guess it e.g my-3467phpINF.php etc
    -Version of PHP you are running (make sure it's compatible with the code)
    -Version of MySQL you are running (make sure it's compatible with the code)
    -Any error message you get when you run the routine that breaks.
@@ -326,14 +328,30 @@ that are currently saved as post tags. This should help the problem where people
 * Added code to sort tags in order of longest first so that deeplinking and bolding will do the longest ones first and not skip over breaks.
 
 = 2.9.6 =
-* Latest Free Version
 * Fixed bug with delete statements that could have deleted shared taxonomies. Added LEFT JOIN in to delete both records only if they are not shared then another DELETE to remove just the taxonomy record for post_tags if they are shared.
 * Fixed deletion issue with noise words.
 
 = 2.9.7 =
-* Latest Paid For Version
 * Fixed bug with delete statements that could have deleted shared taxonomies. Added LEFT JOIN in to delete both records only if they are not shared then another DELETE to remove just the taxonomy record for post_tags if they are shared.
 * Fixed deletion issue with noise words.
 * Fixed deletion issue with clean tags option.
 * Added note to users that they should always backup their database before removing data.
-* Fixed code that showed number of deleted records to divide by two when both tables are affected by the deletion statement
+* Fixed code that showed number of deleted records to divide by two when both tables are affected by the deletion statement.
+
+= 2.9.8 =
+* Latest Free Version.
+* Fixed bug with the AUTOTAG_LONG constant when you are getting site options in GetOptions.
+* Changed some error messages.
+* Added a help section at the top with links to buy configuration coupons as well as the test article to test the site is working.
+* Fixed bug with boolean options not being saved properly e.g skiptaggedposts
+* Added links to my https://Facebook/strictlysoftware page where you can get detailed help and updates on the plugin.
+* Removed functions not used in the free version
+
+= 2.9.9 =
+* Latest Paid For Version
+* Added option to override the siteurl option when deeplinking in case you have a non standard setup. This allows you to hardcode the url to use instead of the site_url option in front of the tag URL.
+* Fixed bug with the AUTOTAG_LONG constant when you are getting site options in GetOptions.
+* Changed some error messages.
+* Added a help section at the top with links to buy configuration coupons as well as the test article to test the site is working.
+* Added links to my https://Facebook/strictlysoftware page where you can get detailed help and updates on the plugin.
+* Fixed bug with boolean options not being saved properly e.g skiptaggedposts
